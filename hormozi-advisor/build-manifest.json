@@ -1,0 +1,110 @@
+{
+  "generated_at": "2026-08-06T02:20:45.237486+00:00",
+  "playbooks": [
+    {
+      "slug": "offers",
+      "title": "Offers",
+      "series": "book",
+      "source": "../$100 m offers_ how to make offers so good people feel stupid -- Alex Hormozy -- PT, 2021 -- Acquisition_com Publishing -- 9781737475705 -- da9eb4951114175a5e429e89b9488c20 -- Anna\u2019s Archive.md",
+      "sha256": "435b99d4ef5f51c352b55917dcba06e940dc0eefda3a70244e3ff2a9ca24020a"
+    },
+    {
+      "slug": "leads",
+      "title": "Leads",
+      "series": "book",
+      "source": "../$100M Leads_ How to Get Strangers To Want To Buy Your Stuff -- Alex Hormozi -- $100M Leads, 2_, 2023 -- 1268dcce3c9050728de5cb669996bd84 -- Anna\u2019s Archive.md",
+      "sha256": "4b51b32a5207a015fe73936734beb9ec6c18585a4e3b41eaa5bb704017c14142"
+    },
+    {
+      "slug": "money-models",
+      "title": "Money Models",
+      "series": "book",
+      "source": "../$100M Money Models_ How To Make Money -- Alex Hormozi -- 2025.md",
+      "sha256": "17a744c4e494dceabd4554aad2e8bac6354027f00665fd8d37346bd6eb871e06"
+    },
+    {
+      "slug": "branding",
+      "title": "Branding",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Branding -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "e564d8f1b6a4ac1a2d4fdae0f9073487fb2db9af8e9b77e0ac6a3da3699952a8"
+    },
+    {
+      "slug": "closing",
+      "title": "Closing",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Closing -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "8b0f4ea3ee926155c34e3ee197967ed7f6e8684fb244d877b7cce8d46da7b613"
+    },
+    {
+      "slug": "fast-cash",
+      "title": "Fast Cash",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Fast Cash -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "719a7bef45dd92fbfaa3d8c765aeee9d88d2a743cc876441b7f14498d2a9886a"
+    },
+    {
+      "slug": "goated-ads",
+      "title": "GOATed Ads",
+      "series": "playbook",
+      "source": "../$100M Playbook_ GOATed Ads -- Alex Hormozi -- 2025.md",
+      "sha256": "d77b833653f74c7be7221d2c7cc7c44ef68747f993438f1cd0e2cbc2cd5f61d4"
+    },
+    {
+      "slug": "hooks",
+      "title": "Hooks",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Hooks -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "6e2b6e11ad5552024e3619787e82f08d724d5834dafcbed441ff360a318706e8"
+    },
+    {
+      "slug": "lead-nurture",
+      "title": "Lead Nurture",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Lead Nurture -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "894facef935d2924b1012248e2866bd398129c774fb162cac7f1f80a2328de8e"
+    },
+    {
+      "slug": "lifetime-value",
+      "title": "Lifetime Value",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Lifetime Value -- Alex Hormozi -- 2025.md",
+      "sha256": "dadcf3edb1b2743c1ed6d354e4641113bcd241d110ff965691df03b75fb7347c"
+    },
+    {
+      "slug": "marketing-machine",
+      "title": "Marketing Machine",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Marketing Machine -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "aa8cba1d61d08cae0192030a876355a2a9136fa2612f468e38a6485e04c3101c"
+    },
+    {
+      "slug": "price-raise",
+      "title": "Price Raise",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Price Raise -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "29a4e349cf41f00830d5a8f4e01415b19e43c0ca5c8c1a6caeff61217dd6954a"
+    },
+    {
+      "slug": "pricing",
+      "title": "Pricing",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Pricing -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "9089725993f0b5a9aa630d1821ab275e5e1f7e2af127c25a49c77fa5c40c749e"
+    },
+    {
+      "slug": "proof-checklist",
+      "title": "Proof Checklist",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Proof Checklist -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "518bf1066bfcd40d087354a24e21c267b7de3f347598a7c941966105acfa0dc7"
+    },
+    {
+      "slug": "retention",
+      "title": "Retention",
+      "series": "playbook",
+      "source": "../$100M Playbook_ Retention -- Alex Hormozi -- $100M, 2025.md",
+      "sha256": "99f71cf48d42845db5c460fb0d4ae3dddd2e2f014b0969c52bdd8c4bf1145f7b"
+    }
+  ]
+}
