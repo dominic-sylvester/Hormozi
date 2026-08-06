@@ -1,0 +1,19 @@
+{
+  "name": "hormozi-advisor",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "eve dev",
+    "build": "eve build",
+    "start": "eve start",
+    "info": "eve info --json"
+  },
+  "dependencies": {
+    "ai": "^7.0.38",
+    "eve": "^0.30.8",
+    "zod": "^4.0.0"
+  }
+}
