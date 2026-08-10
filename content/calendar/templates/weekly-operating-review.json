@@ -1,0 +1,12 @@
+{
+  "id": "weekly-operating-review",
+  "title": "Weekly operating review",
+  "description": "Run parallel department reviews and synthesize priorities for the next week.",
+  "cadence": "weekly",
+  "cron": "0 14 * * 1",
+  "nextRunAt": null,
+  "workflowSkill": "workflow-weekly-review",
+  "sopId": "weekly-review-synthesis",
+  "department": "ceo",
+  "enabled": true
+}

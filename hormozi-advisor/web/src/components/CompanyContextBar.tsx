@@ -10,9 +10,10 @@ import {
 type CompanyContextBarProps = {
   disabled: boolean;
   onSendMessage: (message: string) => Promise<void>;
+  onCompanyIdChange?: (companyId: string) => void;
 };
 
-export function CompanyContextBar({ disabled, onSendMessage }: CompanyContextBarProps) {
+export function CompanyContextBar({ disabled, onSendMessage, onCompanyIdChange }: CompanyContextBarProps) {
   const [catalog, setCatalog] = useState<CompanyCatalogResponse | null>(null);
   const [companyId, setCompanyId] = useState("default");
   const [offerId, setOfferId] = useState<string>("");
@@ -25,6 +26,7 @@ export function CompanyContextBar({ disabled, onSendMessage }: CompanyContextBar
     setCatalog(data);
     if (data) {
       setCompanyId(data.companyId);
+      onCompanyIdChange?.(data.companyId);
       setOfferId(data.active.offerId ?? data.offers[0]?.id ?? "");
       setAvatarId(data.active.avatarId ?? data.avatars[0]?.id ?? "");
     }
@@ -37,6 +39,7 @@ export function CompanyContextBar({ disabled, onSendMessage }: CompanyContextBar
 
   async function onCompanyChange(nextCompanyId: string) {
     setCompanyId(nextCompanyId);
+    onCompanyIdChange?.(nextCompanyId);
     await onSendMessage(buildSelectCompanyMessage(nextCompanyId));
     await refreshCatalog(nextCompanyId);
   }

@@ -40,3 +40,9 @@ return { offer, brand, proof, gtm };
 ```
 
 Adjust parallel steps only when outputs are independent.
+
+## After the workflow
+
+1. Spawn launch follow-ups with `spawn_action_items_from_sop` using `launch-offer-checklist`.
+2. Add custom action items for anything the user must personally approve or ship.
+3. Confirm the action inbox with `get_operating_dashboard`.

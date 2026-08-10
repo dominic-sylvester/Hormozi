@@ -1,0 +1,43 @@
+{
+  "id": "launch-offer-checklist",
+  "name": "Launch offer checklist",
+  "department": "monetization",
+  "trigger": "After workflow-launch-offer completes",
+  "description": "Ship the active offer with proof, hooks, and a go-to-market path.",
+  "steps": [
+    {
+      "order": 1,
+      "title": "Finalize offer stack and pricing",
+      "instruction": "Confirm grand slam offer, pricing, and money model for the active offer.",
+      "ownerRole": "monetization",
+      "estimatedMinutes": 30,
+      "checklist": ["Offer promise", "Price point", "Money model"]
+    },
+    {
+      "order": 2,
+      "title": "Align brand promise",
+      "instruction": "Ensure positioning and brand promise match the active offer and avatar.",
+      "ownerRole": "brand",
+      "estimatedMinutes": 20,
+      "checklist": ["Positioning statement", "Brand promise", "Proof alignment"]
+    },
+    {
+      "order": 3,
+      "title": "Build proof and closing assets",
+      "instruction": "Complete proof checklist and closing talk track for sales conversations.",
+      "ownerRole": "sales",
+      "estimatedMinutes": 45,
+      "checklist": ["Proof checklist", "Objection handling", "Closing outline"]
+    },
+    {
+      "order": 4,
+      "title": "Launch hooks and nurture path",
+      "instruction": "Publish hooks, ad angles, and lead nurture sequence for the active avatar.",
+      "ownerRole": "growth",
+      "estimatedMinutes": 60,
+      "checklist": ["5+ hooks", "Ad angles", "Nurture sequence"]
+    }
+  ],
+  "linkedPlaybookSkills": ["workflow-launch-offer"],
+  "status": "active"
+}

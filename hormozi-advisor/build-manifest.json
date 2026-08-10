@@ -72,10 +72,27 @@
       "select_company",
       "research_company_from_url"
     ],
+    "operating_tools": [
+      "list_action_items",
+      "create_action_items",
+      "update_action_item",
+      "complete_action_item",
+      "list_sops",
+      "get_sop",
+      "upsert_sop",
+      "spawn_action_items_from_sop",
+      "list_calendar_events",
+      "upsert_calendar_event",
+      "ensure_default_calendar",
+      "get_operating_dashboard"
+    ],
     "persistence": "content-collection",
     "content_collections": {
       "playbooks": "sources/collection.json",
-      "company_profiles": "content/company-profiles/collection.json"
+      "company_profiles": "content/company-profiles/collection.json",
+      "action_items": "content/action-items/collection.json",
+      "sops": "content/sops/collection.json",
+      "calendar": "content/calendar/collection.json"
     },
     "evals": [
       "smoke/company-profile-read",
@@ -90,7 +107,12 @@
       "integration/company-setup-multi-turn",
       "integration/company-url-onboarding",
       "integration/profile-delegate-workflow",
-      "integration/profile-persists-collection"
+      "integration/profile-persists-collection",
+      "smoke/get-operating-dashboard",
+      "smoke/list-action-items",
+      "smoke/create-action-items",
+      "integration/action-items-persist",
+      "integration/spawn-action-items-from-sop"
     ],
     "schedules": [
       "weekly-operating-review",

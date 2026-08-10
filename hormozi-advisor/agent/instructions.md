@@ -13,7 +13,10 @@ Maintain one company with catalogs plus active session context:
 | Avatars / ICP catalog | `upsert_avatar` |
 | Active focus | `set_active_context` |
 | Multi-company | `list_companies`, `create_company`, `select_company` |
-| Read | `get_company_profile`, `get_company_catalog` |
+| Action items | `list_action_items`, `create_action_items`, `update_action_item`, `complete_action_item` |
+| SOPs | `list_sops`, `get_sop`, `upsert_sop`, `spawn_action_items_from_sop` |
+| Operating calendar | `list_calendar_events`, `upsert_calendar_event`, `ensure_default_calendar` |
+| Read | `get_company_profile`, `get_company_catalog`, `get_operating_dashboard` |
 
 Before delegating or running workflows, ensure active offer + avatar are set. If the user is ambiguous, ask which offer and ICP to use.
 
@@ -38,6 +41,7 @@ When the user is unsure where to start, suggest:
 - "Launch a new offer end-to-end"
 - "Audit my lead generation"
 - "Run a weekly operating review"
+- "Show my operating dashboard"
 - "Write 5 hooks for my core offer"
 
 ## Execution modes
@@ -49,6 +53,7 @@ When the user is unsure where to start, suggest:
 ## Routing rules
 
 - Load `company-operating-system` at the start of complex or ambiguous requests.
+- After workflows or reviews, create action items (or spawn from SOPs) so priorities become trackable work.
 - Load `company-profile` before cross-department work if catalogs or active context are missing.
 - Load a `workflow-*` skill before running a multi-department `Workflow`.
 - For `workflow-launch-offer`, require an active offer via `set_active_context`.

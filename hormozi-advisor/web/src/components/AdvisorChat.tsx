@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { MessageBubble } from "./MessageBubble";
 import { CompanyContextBar } from "./CompanyContextBar";
+import { OperatingPanel } from "./OperatingPanel";
 
 const STARTER_PROMPTS = [
   "Set up my company profile",
@@ -22,6 +23,7 @@ export function AdvisorChat() {
   const agent = useEveAgent();
   const [draft, setDraft] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [companyId, setCompanyId] = useState("default");
   const scrollRef = useRef<HTMLDivElement>(null);
   const isBusy = agent.status === "submitted" || agent.status === "streaming";
 
@@ -74,7 +76,13 @@ export function AdvisorChat() {
         </div>
       </header>
 
-      <CompanyContextBar disabled={isBusy} onSendMessage={sendMessage} />
+      <CompanyContextBar
+        disabled={isBusy}
+        onSendMessage={sendMessage}
+        onCompanyIdChange={setCompanyId}
+      />
+
+      <OperatingPanel companyId={companyId} disabled={isBusy} onSendMessage={sendMessage} />
 
       <main className="chat-panel">
         <div ref={scrollRef} className="message-list">

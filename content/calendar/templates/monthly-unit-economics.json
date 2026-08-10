@@ -1,0 +1,12 @@
+{
+  "id": "monthly-unit-economics",
+  "title": "Monthly unit economics review",
+  "description": "Review CAC, LTV, payback, and offer mix with monetization and success.",
+  "cadence": "monthly",
+  "cron": "0 14 1 * *",
+  "nextRunAt": null,
+  "workflowSkill": null,
+  "sopId": null,
+  "department": "monetization",
+  "enabled": true
+}

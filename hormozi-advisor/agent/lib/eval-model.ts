@@ -44,6 +44,28 @@ export function createEvalModel() {
       if (toolNames.includes("get_company_profile") || toolNames.includes("get_company_catalog")) {
         return { text: "Here is the current shared company profile catalog." };
       }
+      if (toolNames.includes("get_operating_dashboard")) {
+        return { text: "Here is the operating dashboard with action items, calendar, and SOPs." };
+      }
+      if (
+        toolNames.some((name) =>
+          [
+            "list_action_items",
+            "create_action_items",
+            "update_action_item",
+            "complete_action_item",
+            "list_sops",
+            "get_sop",
+            "upsert_sop",
+            "spawn_action_items_from_sop",
+            "list_calendar_events",
+            "upsert_calendar_event",
+            "ensure_default_calendar",
+          ].includes(name),
+        )
+      ) {
+        return { text: "Operating layer updated." };
+      }
       if (
         toolNames.some((name) =>
           [
@@ -76,6 +98,41 @@ export function createEvalModel() {
 
     if (message.includes("get company catalog") || message.includes("get_company_catalog")) {
       return { toolCalls: [{ name: "get_company_catalog", input: {} }] };
+    }
+
+    if (message.includes("get operating dashboard") || message.includes("get_operating_dashboard")) {
+      return { toolCalls: [{ name: "get_operating_dashboard", input: {} }] };
+    }
+
+    if (message.includes("list action items") || message.includes("list_action_items")) {
+      return { toolCalls: [{ name: "list_action_items", input: {} }] };
+    }
+
+    if (message.includes("create eval action item") || message.includes("multi-turn create action item")) {
+      return {
+        toolCalls: [
+          {
+            name: "create_action_items",
+            input: {
+              items: [{ title: "Test weekly priority", owner: "growth", department: "growth", source: "eval" }],
+            },
+          },
+        ],
+      };
+    }
+
+    if (message.includes("spawn action items from sop") || message.includes("spawn_action_items_from_sop")) {
+      return {
+        toolCalls: [{ name: "spawn_action_items_from_sop", input: { sopId: "weekly-review-synthesis" } }],
+      };
+    }
+
+    if (message.includes("ensure default calendar") || message.includes("ensure_default_calendar")) {
+      return { toolCalls: [{ name: "ensure_default_calendar", input: {} }] };
+    }
+
+    if (message.includes("multi-turn verify action item")) {
+      return { toolCalls: [{ name: "list_action_items", input: { status: "open" } }] };
     }
 
     if (message.includes("read the shared company profile") || message.includes("get_company_profile")) {
@@ -213,7 +270,10 @@ export function createEvalModel() {
         toolCalls: [
           {
             name: "create_company",
-            input: { companyId: "eval-agency", companyName: "Eval Agency Co" },
+            input: {
+              companyId: `eval-agency-${Date.now().toString(36)}`,
+              companyName: "Eval Agency Co",
+            },
           },
         ],
       };

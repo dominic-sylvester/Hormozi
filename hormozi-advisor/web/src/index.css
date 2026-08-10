@@ -49,12 +49,13 @@ code {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr auto;
 }
 
 .app-header,
 .app-footer,
-.chat-panel {
+.chat-panel,
+.ops-panel {
   width: min(960px, calc(100% - 2rem));
   margin-inline: auto;
 }
@@ -182,6 +183,86 @@ code {
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 0.85rem;
+}
+
+.ops-panel {
+  padding-bottom: 1rem;
+}
+
+.ops-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.ops-panel-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.ops-panel-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ops-panel-body {
+  margin-top: 0.85rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.ops-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: #c8c8c8;
+  font-size: 0.92rem;
+}
+
+.ops-columns {
+  display: grid;
+  gap: 1rem;
+}
+
+.ops-column h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  color: #d4af37;
+}
+
+.ops-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ops-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ops-list-item p {
+  margin: 0.25rem 0 0;
+  color: #a8a8a8;
+  font-size: 0.88rem;
+}
+
+.ops-empty {
+  margin: 0;
+  color: #8d8d8d;
+  font-size: 0.92rem;
 }
 
 .onboarding-url-form {
@@ -371,6 +452,10 @@ code {
 @media (min-width: 720px) {
   .context-bar-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ops-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .onboarding-url-row {

@@ -93,8 +93,115 @@ function companyCatalogApiPlugin(): Plugin {
   };
 }
 
+function operatingDashboardApiPlugin(): Plugin {
+  const contentRoot = join(process.cwd(), "..", "..", "content");
+
+  function scopedPath(collection: string, companyId: string): string {
+    return join(contentRoot, collection, "items", `anonymous__anonymous__${companyId}.json`);
+  }
+
+  async function readStore<T>(path: string, fallback: T): Promise<T> {
+    try {
+      return JSON.parse(await readFile(path, "utf8")) as T;
+    } catch {
+      return fallback;
+    }
+  }
+
+  async function seedCalendarTemplates(): Promise<Array<Record<string, unknown>>> {
+    const templatesDir = join(contentRoot, "calendar", "templates");
+    try {
+      const { readdir } = await import("node:fs/promises");
+      const files = (await readdir(templatesDir)).filter((entry) => entry.endsWith(".json"));
+      const events: Array<Record<string, unknown>> = [];
+      for (const file of files) {
+        events.push(JSON.parse(await readFile(join(templatesDir, file), "utf8")) as Record<string, unknown>);
+      }
+      return events;
+    } catch {
+      return [];
+    }
+  }
+
+  return {
+    name: "operating-dashboard-api",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/operating-dashboard")) {
+          next();
+          return;
+        }
+
+        try {
+          const url = new URL(req.url, "http://localhost");
+          const companyId = url.searchParams.get("companyId") ?? "default";
+
+          const actionStore = await readStore<{ items?: Array<Record<string, unknown>> }>(
+            scopedPath("action-items", companyId),
+            { items: [] },
+          );
+          const calendarStore = await readStore<{ events?: Array<Record<string, unknown>> }>(
+            scopedPath("calendar", companyId),
+            { events: [] },
+          );
+
+          const items = Array.isArray(actionStore.items) ? actionStore.items : [];
+          let events = Array.isArray(calendarStore.events) ? calendarStore.events : [];
+          if (events.length === 0) {
+            events = await seedCalendarTemplates();
+          }
+
+          const openActionItems = items
+            .filter((item) => {
+              const status = String(item.status ?? "open");
+              return status === "open" || status === "in_progress" || status === "blocked";
+            })
+            .map((item) => ({
+              id: String(item.id ?? ""),
+              title: String(item.title ?? ""),
+              status: String(item.status ?? "open"),
+              owner: String(item.owner ?? "user"),
+              priority: String(item.priority ?? "medium"),
+              dueAt: item.dueAt ? String(item.dueAt) : null,
+              department: item.department ? String(item.department) : null,
+            }));
+
+          const upcomingEvents = events
+            .filter((event) => event.enabled !== false)
+            .map((event) => ({
+              id: String(event.id ?? ""),
+              title: String(event.title ?? ""),
+              cadence: String(event.cadence ?? "weekly"),
+              cron: event.cron ? String(event.cron) : null,
+              department: event.department ? String(event.department) : null,
+              workflowSkill: event.workflowSkill ? String(event.workflowSkill) : null,
+            }));
+
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              companyId,
+              openActionItems,
+              upcomingEvents,
+              counts: {
+                open: items.filter((item) => item.status === "open").length,
+                inProgress: items.filter((item) => item.status === "in_progress").length,
+                blocked: items.filter((item) => item.status === "blocked").length,
+                done: items.filter((item) => item.status === "done").length,
+              },
+            }),
+          );
+        } catch (error) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "dashboard error" }));
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), companyCatalogApiPlugin()],
+  plugins: [react(), companyCatalogApiPlugin(), operatingDashboardApiPlugin()],
   server: {
     port: 5173,
     proxy: {
