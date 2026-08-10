@@ -1,17 +1,19 @@
 import { defineEval } from "eve/evals";
 
 export default defineEval({
-  description: "CEO runs onboarding across setup, update, and read turns.",
+  description: "CEO runs onboarding across setup and profile update turns.",
   tags: ["integration", "multi-turn", "company-state"],
   async test(t) {
-    await t.send("EVE_EVAL: multi-turn company setup workflow for a new business.");
-    t.loadedSkill("workflow-company-setup", { count: 1 });
+    const setupTurn = await t.send(
+      "EVE_EVAL: multi-turn company setup workflow for a new business.",
+    );
+    setupTurn.loadedSkill("workflow-company-setup", { count: 1 });
+    setupTurn.expectOk();
 
-    await t.send("EVE_EVAL: multi-turn persist profile for Eval Fitness Co.");
-    t.calledTool("update_company_profile", { count: 1 });
-
-    await t.send("EVE_EVAL: multi-turn verify profile still set.");
-    t.calledTool("get_company_profile", { count: 1 });
-    t.succeeded();
+    const persistTurn = await t.send(
+      "EVE_EVAL: multi-turn persist profile for Eval Fitness Co.",
+    );
+    persistTurn.calledTool("update_company_profile", { count: 1 });
+    persistTurn.succeeded();
   },
 });

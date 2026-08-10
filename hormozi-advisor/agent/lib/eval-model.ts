@@ -1,5 +1,11 @@
 import { mockModel } from "eve/evals";
 
+function extractEvalDirective(message: string | null): string {
+  const text = message ?? "";
+  const match = text.match(/EVE_EVAL:\s*(.+)/i);
+  return (match?.[1] ?? text).trim().toLowerCase();
+}
+
 export function createEvalModel() {
   return mockModel(({ lastUserMessage, toolResults, messages }) => {
     const respondingToToolResults =
@@ -24,7 +30,7 @@ export function createEvalModel() {
       return { text: "Eval fixture step complete." };
     }
 
-    const message = (lastUserMessage ?? "").toLowerCase();
+    const message = extractEvalDirective(lastUserMessage);
 
     if (message.includes("read the shared company profile") || message.includes("get_company_profile")) {
       return { toolCalls: [{ name: "get_company_profile", input: {} }] };
@@ -63,6 +69,20 @@ export function createEvalModel() {
       return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-company-setup" } }] };
     }
 
+    if (message.includes("multi-turn launch workflow")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-launch-offer" } }] };
+    }
+
+    if (message.includes("multi-turn growth brief")) {
+      return {
+        toolCalls: [{ name: "growth", input: { message: lastUserMessage } }],
+      };
+    }
+
+    if (message.includes("multi-turn verify profile")) {
+      return { toolCalls: [{ name: "get_company_profile", input: {} }] };
+    }
+
     if (message.includes("multi-turn company setup")) {
       return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-company-setup" } }] };
     }
@@ -80,20 +100,6 @@ export function createEvalModel() {
           },
         ],
       };
-    }
-
-    if (message.includes("multi-turn verify profile")) {
-      return { toolCalls: [{ name: "get_company_profile", input: {} }] };
-    }
-
-    if (message.includes("multi-turn growth brief")) {
-      return {
-        toolCalls: [{ name: "growth", input: { message: lastUserMessage } }],
-      };
-    }
-
-    if (message.includes("multi-turn launch workflow")) {
-      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-launch-offer" } }] };
     }
 
     return { text: "Eval fixture acknowledgment." };
