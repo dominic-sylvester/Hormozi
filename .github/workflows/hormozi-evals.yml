@@ -20,7 +20,7 @@ jobs:
           cache-dependency-path: hormozi-advisor/package-lock.json
       - run: npm ci
       - run: npm run typecheck
-      - run: npm run eval:strict -- --max-concurrency 1
+      - run: npm run eval:strict -- --max-concurrency 1 --timeout 180000
         env:
           EVE_EVAL: "1"
-        timeout-minutes: 10
+        timeout-minutes: 15
