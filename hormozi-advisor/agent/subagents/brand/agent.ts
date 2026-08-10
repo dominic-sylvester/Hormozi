@@ -1,6 +1,8 @@
 import { defineAgent } from "eve";
 
+import { resolveModel } from "../../lib/model.js";
+
 export default defineAgent({
   description: "Owns positioning, brand strategy, and market perception. Use when the user needs brand voice, identity, or reputation.",
-  model: process.env.HORMOZI_DEPARTMENT_MODEL ?? process.env.HORMOZI_SUBAGENT_MODEL ?? process.env.HORMOZI_AGENT_MODEL,
+  model: resolveModel("department"),
 });

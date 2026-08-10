@@ -10,6 +10,9 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 - **Workflow tool** — cross-department orchestration
 - **Schedules** — weekly operating review, monthly unit economics
 
+- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`
+- **Evals** — smoke and routing checks with `npm run eval`
+
 ## Regenerate
 
 From the repository root:
@@ -30,3 +33,13 @@ npx eve info --json
 ```
 
 Requires Node.js 24+. Set `HORMOZI_AGENT_MODEL`, `HORMOZI_DEPARTMENT_MODEL`, and `HORMOZI_SPECIALIST_MODEL` as needed.
+
+## Evals
+
+Deterministic evals use `EVE_EVAL=1` and a mock CEO model fixture:
+
+```bash
+npm run eval
+npm run eval:strict
+npm run typecheck
+```

@@ -21,10 +21,19 @@ OFFERS_MARKER = "offers_"
 
 COMPANY_SKILL_SLUGS = (
     "company-operating-system",
+    "company-profile",
     "workflow-launch-offer",
     "workflow-lead-gen-audit",
     "workflow-weekly-review",
     "workflow-retention-recovery",
+)
+
+EVAL_IDS = (
+    "smoke/company-profile-read",
+    "smoke/company-profile-update",
+    "smoke/ceo-loads-hooks-skill",
+    "smoke/ceo-delegates-growth",
+    "routing/launch-offer-loads-workflow-skill",
 )
 
 DEPARTMENT_SLUGS = ("growth", "monetization", "sales", "success", "brand")
@@ -278,10 +287,12 @@ def write_playbook_specialist(
 
     agent_content = f"""import {{ defineAgent }} from "eve";
 
+import {{ resolveModel }} from "../../../../lib/model.js";
+
 export default defineAgent({{
   description:
     "{playbook.title} specialist. Use for {playbook.title.lower()} frameworks, tactics, audits, and examples from Alex Hormozi's material.",
-  model: process.env.HORMOZI_SPECIALIST_MODEL ?? process.env.HORMOZI_SUBAGENT_MODEL ?? process.env.HORMOZI_AGENT_MODEL,
+  model: resolveModel("specialist"),
 }});
 """
 
@@ -323,9 +334,11 @@ def write_department(
 
     agent_content = f"""import {{ defineAgent }} from "eve";
 
+import {{ resolveModel }} from "../../lib/model.js";
+
 export default defineAgent({{
   description: "{department.description}",
-  model: process.env.HORMOZI_DEPARTMENT_MODEL ?? process.env.HORMOZI_SUBAGENT_MODEL ?? process.env.HORMOZI_AGENT_MODEL,
+  model: resolveModel("department"),
 }});
 """
 
@@ -333,6 +346,7 @@ export default defineAgent({{
 
 Your job is to run your department, not to answer from memory alone.
 
+- The CEO's brief includes shared company profile context when relevant — treat it as source of truth for ICP, offer, and metrics.
 - Delegate to the right specialist for playbook-specific work.
 - Write self-contained briefs: goal, constraints, context, and desired output format.
 - Synthesize specialist outputs into one department recommendation for the CEO.
@@ -420,6 +434,16 @@ description: Use for company structure, routing, operating principles, and cross
 - Price to value; raise prices with proof, not hope.
 - Retention and LTV fund acquisition — never optimize front-end without back-end.
 - Brand is the promise kept in public; proof beats claims.
+
+## Shared company state
+
+The CEO maintains one canonical company profile for the whole organization:
+
+- Read with `get_company_profile`
+- Update with `update_company_profile`
+- Load the `company-profile` skill for field definitions and briefing rules
+
+Department heads do not have direct access to those tools. The CEO must paste relevant profile fields into every department brief.
 
 ## When to use Workflow vs delegation
 
@@ -562,6 +586,506 @@ return { retention, offerPath, proof, traffic };
         )
 
 
+def write_company_state(output_dir: Path, *, overwrite: bool, dry_run: bool) -> None:
+    lib_dir = output_dir / "agent" / "lib"
+    tools_dir = output_dir / "agent" / "tools"
+    sandbox_dir = output_dir / "agent" / "sandbox" / "workspace" / "company"
+
+    company_state_ts = """import { defineState } from "eve/context";
+
+export type CompanyMetrics = {
+  leadsWeekly: number | null;
+  adSpendWeekly: number | null;
+  cpl: number | null;
+  showRate: number | null;
+  closeRate: number | null;
+  churnRate: number | null;
+};
+
+export type CompanyProfile = {
+  companyName: string;
+  offer: string;
+  avatar: string;
+  promise: string;
+  pricePoint: string;
+  channel: string;
+  metrics: CompanyMetrics;
+  goals: string[];
+  updatedAt: string | null;
+};
+
+export const emptyCompanyProfile = (): CompanyProfile => ({
+  companyName: "",
+  offer: "",
+  avatar: "",
+  promise: "",
+  pricePoint: "",
+  channel: "",
+  metrics: {
+    leadsWeekly: null,
+    adSpendWeekly: null,
+    cpl: null,
+    showRate: null,
+    closeRate: null,
+    churnRate: null,
+  },
+  goals: [],
+  updatedAt: null,
+});
+
+export const companyProfile = defineState(
+  "hormozi-company.profile",
+  emptyCompanyProfile,
+);
+
+export function formatProfileMarkdown(profile: CompanyProfile): string {
+  const metrics = profile.metrics;
+  const goals = profile.goals.length > 0 ? profile.goals.map((g) => `- ${g}`).join("\\n") : "- (none yet)";
+
+  return `# Company Profile
+
+> Shared state for the Hormozi company. Updated by the CEO via \`update_company_profile\`.
+
+## Identity
+
+- **Company:** ${profile.companyName || "(unset)"}
+- **Offer:** ${profile.offer || "(unset)"}
+- **Avatar (ICP):** ${profile.avatar || "(unset)"}
+- **Promise:** ${profile.promise || "(unset)"}
+- **Price point:** ${profile.pricePoint || "(unset)"}
+- **Primary channel:** ${profile.channel || "(unset)"}
+
+## Metrics
+
+- Leads / week: ${metrics.leadsWeekly ?? "(unset)"}
+- Ad spend / week: ${metrics.adSpendWeekly ?? "(unset)"}
+- CPL: ${metrics.cpl ?? "(unset)"}
+- Show rate: ${metrics.showRate ?? "(unset)"}
+- Close rate: ${metrics.closeRate ?? "(unset)"}
+- Churn rate: ${metrics.churnRate ?? "(unset)"}
+
+## Goals
+
+${goals}
+
+_Last updated: ${profile.updatedAt ?? "never"}_
+`;
+}
+"""
+
+    model_ts = """import { defineDynamic } from "eve";
+import { mockModel } from "eve/evals";
+
+import { createEvalModel } from "./eval-model.js";
+
+export type ModelRole = "ceo" | "department" | "specialist";
+
+const gatewayFallback =
+  process.env.HORMOZI_AGENT_MODEL ?? "anthropic/claude-sonnet-4.6";
+
+function evalFixtureModel(role: ModelRole) {
+  return role === "ceo"
+    ? createEvalModel()
+    : mockModel(`${role} eval response.`);
+}
+
+function productionModel(role: ModelRole) {
+  if (role === "department") {
+    return (
+      process.env.HORMOZI_DEPARTMENT_MODEL ??
+      process.env.HORMOZI_SUBAGENT_MODEL ??
+      gatewayFallback
+    );
+  }
+
+  if (role === "specialist") {
+    return (
+      process.env.HORMOZI_SPECIALIST_MODEL ??
+      process.env.HORMOZI_SUBAGENT_MODEL ??
+      gatewayFallback
+    );
+  }
+
+  return gatewayFallback;
+}
+
+export function resolveModel(role: ModelRole = "ceo") {
+  return defineDynamic({
+    fallback: gatewayFallback,
+    events: {
+      "session.started": () => productionModel(role),
+      "step.started": () => {
+        if (process.env.EVE_EVAL !== "1") return null;
+        return evalFixtureModel(role);
+      },
+    },
+  });
+}
+"""
+
+    eval_model_ts = """import { mockModel } from "eve/evals";
+
+export function createEvalModel() {
+  return mockModel(({ lastUserMessage, toolResults }) => {
+    if (toolResults.length > 0) {
+      const toolNames = toolResults.map((result) => result.toolName);
+      if (toolNames.includes("get_company_profile")) {
+        return { text: "Here is the current shared company profile." };
+      }
+      if (toolNames.includes("update_company_profile")) {
+        return { text: "Shared company profile updated." };
+      }
+      if (toolNames.includes("load_skill")) {
+        return { text: "Applied the loaded playbook skill." };
+      }
+      if (toolNames.includes("growth")) {
+        return { text: "Growth department completed the brief." };
+      }
+      return { text: "Eval fixture step complete." };
+    }
+
+    const message = lastUserMessage.toLowerCase();
+
+    if (message.includes("read the shared company profile") || message.includes("get_company_profile")) {
+      return { toolCalls: [{ name: "get_company_profile", input: {} }] };
+    }
+
+    if (message.includes("update the shared company profile") || message.includes("update_company_profile")) {
+      return {
+        toolCalls: [
+          {
+            name: "update_company_profile",
+            input: {
+              companyName: "Eval Fitness Co",
+              offer: "12-week transformation program",
+              avatar: "Busy professionals who want to lose 20+ lbs",
+            },
+          },
+        ],
+      };
+    }
+
+    if (message.includes("load hooks skill") || message.includes("load_skill hooks")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "hooks" } }] };
+    }
+
+    if (message.includes("delegate to growth") || message.includes("call growth")) {
+      return {
+        toolCalls: [{ name: "growth", input: { message: lastUserMessage } }],
+      };
+    }
+
+    if (message.includes("launch offer workflow") || message.includes("workflow-launch-offer")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-launch-offer" } }] };
+    }
+
+    return { text: "Eval fixture acknowledgment." };
+  });
+}
+"""
+
+    get_profile_ts = """import { defineTool } from "eve/tools";
+import { z } from "zod";
+
+import { companyProfile } from "../lib/company-state.js";
+
+export default defineTool({
+  description: "Read the shared company profile used across all departments.",
+  inputSchema: z.object({}),
+  async execute() {
+    return companyProfile.get();
+  },
+});
+"""
+
+    update_profile_ts = """import { defineTool } from "eve/tools";
+import { z } from "zod";
+
+import {
+  companyProfile,
+  formatProfileMarkdown,
+  type CompanyMetrics,
+  type CompanyProfile,
+} from "../lib/company-state.js";
+
+const metricsSchema = z
+  .object({
+    leadsWeekly: z.number().nullable().optional(),
+    adSpendWeekly: z.number().nullable().optional(),
+    cpl: z.number().nullable().optional(),
+    showRate: z.number().nullable().optional(),
+    closeRate: z.number().nullable().optional(),
+    churnRate: z.number().nullable().optional(),
+  })
+  .strict();
+
+const updateSchema = z
+  .object({
+    companyName: z.string().optional(),
+    offer: z.string().optional(),
+    avatar: z.string().optional(),
+    promise: z.string().optional(),
+    pricePoint: z.string().optional(),
+    channel: z.string().optional(),
+    metrics: metricsSchema.optional(),
+    goals: z.array(z.string()).optional(),
+  })
+  .strict();
+
+function mergeProfile(current: CompanyProfile, patch: z.infer<typeof updateSchema>): CompanyProfile {
+  const metrics: CompanyMetrics = {
+    ...current.metrics,
+    ...(patch.metrics ?? {}),
+  };
+
+  return {
+    ...current,
+    ...patch,
+    metrics,
+    goals: patch.goals ?? current.goals,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export default defineTool({
+  description:
+    "Update the shared company profile. Partial updates merge into the existing session state and sync to /workspace/company/profile.md.",
+  inputSchema: updateSchema,
+  async execute(input, ctx) {
+    companyProfile.update((current) => mergeProfile(current, input));
+    const profile = companyProfile.get();
+
+    try {
+      const sandbox = await ctx.getSandbox();
+      await sandbox.writeTextFile({
+        path: "company/profile.md",
+        content: formatProfileMarkdown(profile),
+      });
+    } catch {
+      // Sandbox may be unavailable during discovery or some runtime modes.
+    }
+
+    return profile;
+  },
+});
+"""
+
+    profile_seed = """# Company Profile
+
+> Shared state for the Hormozi company. The CEO updates this via `update_company_profile`.
+
+## Identity
+
+- **Company:** (unset)
+- **Offer:** (unset)
+- **Avatar (ICP):** (unset)
+- **Promise:** (unset)
+- **Price point:** (unset)
+- **Primary channel:** (unset)
+
+## Metrics
+
+- Leads / week: (unset)
+- Ad spend / week: (unset)
+- CPL: (unset)
+- Show rate: (unset)
+- Close rate: (unset)
+- Churn rate: (unset)
+
+## Goals
+
+- (none yet)
+
+_Last updated: never_
+"""
+
+    company_profile_skill = """---
+description: Use when reading or updating the shared company profile, briefing departments, or aligning work to ICP, offer, metrics, and goals.
+metadata:
+  kind: company-state
+---
+
+# Shared Company Profile
+
+One canonical profile drives the whole company for the current session.
+
+## Tools (CEO only)
+
+- `get_company_profile` — read current profile
+- `update_company_profile` — merge partial updates
+
+The synced markdown mirror lives at `/workspace/company/profile.md` in the sandbox.
+
+## Required fields
+
+| Field | Purpose |
+| --- | --- |
+| `companyName` | Business name |
+| `offer` | Core offer being sold |
+| `avatar` | ICP / dream customer |
+| `promise` | Transformation promised |
+| `pricePoint` | Primary price or range |
+| `channel` | Main acquisition channel |
+| `metrics` | Weekly operating metrics |
+| `goals` | Current company priorities |
+
+## Briefing departments
+
+When delegating to `growth`, `monetization`, `sales`, `success`, or `brand`, include:
+
+1. Relevant profile fields (offer, avatar, metrics, goals)
+2. The specific outcome you want back
+3. Constraints (budget, timeline, tone)
+
+Department heads cannot read the profile tools directly — your brief is their source of truth.
+
+See `references/profile-schema.md` for the full schema.
+"""
+
+    profile_schema_ref = """# Company Profile Schema
+
+```json
+{
+  "companyName": "string",
+  "offer": "string",
+  "avatar": "string",
+  "promise": "string",
+  "pricePoint": "string",
+  "channel": "string",
+  "metrics": {
+    "leadsWeekly": "number | null",
+    "adSpendWeekly": "number | null",
+    "cpl": "number | null",
+    "showRate": "number | null",
+    "closeRate": "number | null",
+    "churnRate": "number | null"
+  },
+  "goals": ["string"],
+  "updatedAt": "ISO-8601 string | null"
+}
+```
+"""
+
+    for path, content, label in [
+        (lib_dir / "company-state.ts", company_state_ts, "company-state.ts"),
+        (lib_dir / "model.ts", model_ts, "model.ts"),
+        (lib_dir / "eval-model.ts", eval_model_ts, "eval-model.ts"),
+        (tools_dir / "get_company_profile.ts", get_profile_ts, "get_company_profile tool"),
+        (tools_dir / "update_company_profile.ts", update_profile_ts, "update_company_profile tool"),
+        (sandbox_dir / "profile.md", profile_seed, "sandbox company profile seed"),
+        (
+            output_dir / "agent" / "skills" / "company-profile" / "SKILL.md",
+            company_profile_skill,
+            "company-profile skill",
+        ),
+        (
+            output_dir / "agent" / "skills" / "company-profile" / "references" / "profile-schema.md",
+            profile_schema_ref,
+            "company-profile schema reference",
+        ),
+    ]:
+        write_text(path, content, overwrite=overwrite, dry_run=dry_run, label=label)
+
+
+def write_evals(output_dir: Path, *, overwrite: bool, dry_run: bool) -> None:
+    evals_dir = output_dir / "evals"
+
+    evals_config = """import { defineEvalConfig } from "eve/evals";
+
+export default defineEvalConfig({
+  timeoutMs: 120_000,
+});
+"""
+
+    tsconfig = """{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["agent/**/*.ts", "evals/**/*.ts"]
+}
+"""
+
+    eval_files = {
+        "smoke/company-profile-read.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO reads the shared company profile via get_company_profile.",
+  tags: ["smoke", "company-state"],
+  async test(t) {
+    await t.send("EVE_EVAL: read the shared company profile using get_company_profile.");
+    t.succeeded();
+    t.calledTool("get_company_profile", { count: 1 });
+  },
+});
+""",
+        "smoke/company-profile-update.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO updates the shared company profile via update_company_profile.",
+  tags: ["smoke", "company-state"],
+  async test(t) {
+    await t.send("EVE_EVAL: update the shared company profile for Eval Fitness Co.");
+    t.succeeded();
+    t.calledTool("update_company_profile", { count: 1 });
+  },
+});
+""",
+        "smoke/ceo-loads-hooks-skill.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO loads the hooks playbook skill on demand.",
+  tags: ["smoke", "skills"],
+  async test(t) {
+    await t.send("EVE_EVAL: load hooks skill for this answer.");
+    t.succeeded();
+    t.loadedSkill("hooks", { count: 1 });
+  },
+});
+""",
+        "smoke/ceo-delegates-growth.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO delegates a brief to the growth department head.",
+  tags: ["smoke", "routing"],
+  async test(t) {
+    await t.send("EVE_EVAL: delegate to growth to audit our top-of-funnel.");
+    t.succeeded();
+    t.calledSubagent("growth", { count: 1 });
+  },
+});
+""",
+        "routing/launch-offer-loads-workflow-skill.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO loads the launch-offer workflow skill before orchestration.",
+  tags: ["routing", "workflows"],
+  async test(t) {
+    await t.send("EVE_EVAL: launch offer workflow for a new coaching program.");
+    t.succeeded();
+    t.loadedSkill("workflow-launch-offer", { count: 1 });
+  },
+});
+""",
+    }
+
+    write_text(evals_dir / "evals.config.ts", evals_config, overwrite=overwrite, dry_run=dry_run, label="evals.config.ts")
+    write_text(output_dir / "tsconfig.json", tsconfig, overwrite=overwrite, dry_run=dry_run, label="tsconfig.json")
+
+    for relative_path, content in eval_files.items():
+        write_text(
+            evals_dir / relative_path,
+            content,
+            overwrite=overwrite,
+            dry_run=dry_run,
+            label=f"eval {relative_path}",
+        )
+
+
 def write_workflow_tool(output_dir: Path, *, overwrite: bool, dry_run: bool) -> None:
     content = """import { experimental_workflow } from "eve/tools";
 
@@ -638,15 +1162,29 @@ def write_root_agent(
 
     agent_content = """import { defineAgent } from "eve";
 
+import { resolveModel } from "./lib/model.js";
+
+const evalMode = process.env.EVE_EVAL === "1";
+
 export default defineAgent({
-  compaction: { thresholdPercent: 0.9 },
-  model: process.env.HORMOZI_AGENT_MODEL ?? "anthropic/claude-sonnet-4.6",
+  ...(evalMode ? {} : { compaction: { thresholdPercent: 0.9 } }),
+  model: resolveModel("ceo"),
 });
 """
 
     instructions_content = f"""You are the **CEO** of a Hormozi-style acquisition company powered by Alex Hormozi's playbooks.
 
-You do not guess frameworks. You route work through skills, department heads, specialists, and workflows.
+You do not guess frameworks. You route work through skills, department heads, specialists, workflows, and shared company state.
+
+## Shared company state
+
+Maintain one canonical company profile for the session:
+
+- `get_company_profile` — read ICP, offer, metrics, and goals
+- `update_company_profile` — merge updates as the business evolves
+- Load `company-profile` when briefing departments or running workflows
+
+Always include relevant profile fields when delegating to department heads.
 
 ## Execution modes
 
@@ -657,6 +1195,7 @@ You do not guess frameworks. You route work through skills, department heads, sp
 ## Routing rules
 
 - Load `company-operating-system` at the start of complex or ambiguous requests.
+- Load `company-profile` before cross-department work if profile fields are missing or stale.
 - Load a `workflow-*` skill before running a multi-department `Workflow`.
 - Delegate to department heads; they delegate to playbook specialists.
 - Use root playbook skills only for fast CEO-level answers that do not need a full department run.
@@ -687,11 +1226,17 @@ You do not guess frameworks. You route work through skills, department heads, sp
                 "build": "eve build",
                 "start": "eve start",
                 "info": "eve info --json",
+                "eval": "EVE_EVAL=1 eve eval",
+                "eval:strict": "EVE_EVAL=1 eve eval --strict",
+                "typecheck": "tsc --noEmit",
             },
             "dependencies": {
                 "ai": "^7.0.38",
                 "eve": "^0.30.8",
                 "zod": "^4.0.0",
+            },
+            "devDependencies": {
+                "typescript": "^5.9.0",
             },
         },
         indent=2,
@@ -710,6 +1255,9 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 - **15 playbook specialists** — nested under their department
 - **Workflow tool** — cross-department orchestration
 - **Schedules** — weekly operating review, monthly unit economics
+
+- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`
+- **Evals** — smoke and routing checks with `npm run eval`
 
 ## Regenerate
 
@@ -731,6 +1279,16 @@ npx eve info --json
 ```
 
 Requires Node.js 24+. Set `HORMOZI_AGENT_MODEL`, `HORMOZI_DEPARTMENT_MODEL`, and `HORMOZI_SPECIALIST_MODEL` as needed.
+
+## Evals
+
+Deterministic evals use `EVE_EVAL=1` and a mock CEO model fixture:
+
+```bash
+npm run eval
+npm run eval:strict
+npm run typecheck
+```
 """
 
     for path, content, label in [
@@ -764,6 +1322,8 @@ def write_manifest(
                 for dept in DEPARTMENTS
             ],
             "workflow_skills": [slug for slug in COMPANY_SKILL_SLUGS if slug.startswith("workflow-")],
+            "company_state_tools": ["get_company_profile", "update_company_profile"],
+            "evals": list(EVAL_IDS),
             "schedules": ["weekly-operating-review", "monthly-unit-economics"],
         },
         "playbooks": [
@@ -867,9 +1427,11 @@ def build_agents(
         cleanup_stale_generated(output_dir, playbooks, dry_run=dry_run)
 
     write_root_agent(output_dir, playbooks, overwrite=overwrite, dry_run=dry_run)
+    write_company_state(output_dir, overwrite=overwrite, dry_run=dry_run)
     write_workflow_tool(output_dir, overwrite=overwrite, dry_run=dry_run)
     write_schedules(output_dir, overwrite=overwrite, dry_run=dry_run)
     write_company_skills(output_dir, overwrite=overwrite, dry_run=dry_run)
+    write_evals(output_dir, overwrite=overwrite, dry_run=dry_run)
 
     for playbook in playbooks:
         write_playbook_skill(
@@ -895,7 +1457,7 @@ def build_agents(
         f"\nDone. Generated Hormozi company in {output_dir}: "
         f"{len(DEPARTMENTS)} departments, {specialist_count} specialists, "
         f"{len(playbooks)} root skills, {len(COMPANY_SKILL_SLUGS)} company skills, "
-        f"1 workflow tool, 2 schedules"
+        f"2 company-state tools, {len(EVAL_IDS)} evals, 1 workflow tool, 2 schedules"
     )
     return 0
 

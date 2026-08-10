@@ -27,6 +27,16 @@ description: Use for company structure, routing, operating principles, and cross
 - Retention and LTV fund acquisition — never optimize front-end without back-end.
 - Brand is the promise kept in public; proof beats claims.
 
+## Shared company state
+
+The CEO maintains one canonical company profile for the whole organization:
+
+- Read with `get_company_profile`
+- Update with `update_company_profile`
+- Load the `company-profile` skill for field definitions and briefing rules
+
+Department heads do not have direct access to those tools. The CEO must paste relevant profile fields into every department brief.
+
 ## When to use Workflow vs delegation
 
 - One department owns the outcome → delegate to that department head only.
