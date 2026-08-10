@@ -21,6 +21,11 @@ export function createEvalModel() {
       if (toolNames.includes("update_company_profile")) {
         return { text: "Shared company profile updated." };
       }
+      if (toolNames.includes("research_company_from_url")) {
+        return {
+          text: "Here is the draft profile from website research. Please confirm or correct each field before I persist it.",
+        };
+      }
       if (toolNames.includes("load_skill")) {
         return { text: "Applied the loaded playbook skill." };
       }
@@ -71,6 +76,51 @@ export function createEvalModel() {
 
     if (message.includes("multi-turn launch workflow")) {
       return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-launch-offer" } }] };
+    }
+
+    if (message.includes("multi-turn research company from")) {
+      const urlMatch = message.match(/https?:\/\/[^\s]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}/i);
+      return {
+        toolCalls: [
+          {
+            name: "research_company_from_url",
+            input: { url: urlMatch?.[0] ?? "https://eval-fitness.com" },
+          },
+        ],
+      };
+    }
+
+    if (message.includes("multi-turn confirm researched profile")) {
+      return {
+        toolCalls: [
+          {
+            name: "update_company_profile",
+            input: {
+              companyName: "Eval Fitness Co",
+              websiteUrl: "https://eval-fitness.com",
+              offer: "12-week body transformation coaching program",
+              avatar: "Busy professionals who want to lose 20+ lbs without crash diets",
+              promise: "Lose 20+ lbs in 12 weeks with a proven nutrition and accountability system",
+              pricePoint: "$3,000",
+              channel: "Paid social",
+              researchNotes: "Eval fixture research for deterministic tests.",
+              researchSources: [{ url: "https://eval-fitness.com", title: "Eval Fitness Co" }],
+            },
+          },
+        ],
+      };
+    }
+
+    if (message.includes("research company from") || message.includes("research my company from")) {
+      const urlMatch = message.match(/https?:\/\/[^\s]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}/i);
+      return {
+        toolCalls: [
+          {
+            name: "research_company_from_url",
+            input: { url: urlMatch?.[0] ?? "https://eval-fitness.com" },
+          },
+        ],
+      };
     }
 
     if (message.includes("multi-turn growth brief")) {

@@ -11,9 +11,10 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 - **Schedules** — weekly operating review, monthly unit economics
 
 - **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted in `content/company-profiles`
+- **URL onboarding** — `research_company_from_url` fetches public pages and builds a draft profile for confirmation
 - **Evals** — smoke, routing, integration, and content-collection persistence checks with `npm run eval`
 - **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
-- **Onboarding** — `workflow-company-setup` skill for empty profiles
+- **Onboarding** — `workflow-company-setup` skill for empty profiles (manual interview or website URL research)
 - **Chunked references** — large books split under `references/sections/`
 
 ## Regenerate

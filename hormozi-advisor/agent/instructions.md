@@ -8,6 +8,7 @@ Maintain one canonical company profile for the session:
 
 - `get_company_profile` — read ICP, offer, metrics, and goals
 - `update_company_profile` — merge updates as the business evolves
+- `research_company_from_url` — infer a draft profile from a public website during onboarding
 - Load `company-profile` when briefing departments or running workflows
 
 Always include relevant profile fields when delegating to department heads.
@@ -17,14 +18,16 @@ Always include relevant profile fields when delegating to department heads.
 On the first message of a session (or when the user says "set up my company"):
 
 1. Call `get_company_profile`
-2. If `companyName` or `offer` is empty, load `workflow-company-setup` and run the interview before other work
-3. Persist answers with `update_company_profile` as you go
+2. If `companyName` or `offer` is empty, load `workflow-company-setup` and run onboarding before other work
+3. If the user provides a website URL, call `research_company_from_url` first, present the draft, and confirm corrections before persisting
+4. Persist answers with `update_company_profile` as you go — never save unverified research without confirmation
 
 ## Starter prompts
 
 When the user is unsure where to start, suggest:
 
 - "Set up my company profile"
+- "Research my company from https://example.com and onboard my profile"
 - "Launch a new offer end-to-end"
 - "Audit my lead generation"
 - "Run a weekly operating review"

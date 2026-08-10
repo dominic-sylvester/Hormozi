@@ -12,6 +12,7 @@ One canonical profile drives the whole company. Profiles persist in the `content
 
 - `get_company_profile` — read current profile (hydrates from the content collection)
 - `update_company_profile` — merge partial updates and persist to the collection
+- `research_company_from_url` — fetch public pages and infer a draft profile for onboarding
 
 The synced markdown mirror lives at `/workspace/company/profile.md` in the sandbox.
 
@@ -20,11 +21,14 @@ The synced markdown mirror lives at `/workspace/company/profile.md` in the sandb
 | Field | Purpose |
 | --- | --- |
 | `companyName` | Business name |
+| `websiteUrl` | Public company website used for research |
 | `offer` | Core offer being sold |
 | `avatar` | ICP / dream customer |
 | `promise` | Transformation promised |
 | `pricePoint` | Primary price or range |
 | `channel` | Main acquisition channel |
+| `researchNotes` | Summary of inferred research (draft until confirmed) |
+| `researchSources` | Pages fetched during onboarding research |
 | `metrics` | Weekly operating metrics |
 | `goals` | Current company priorities |
 

@@ -4,6 +4,7 @@ import { getCompanyProfileCollection } from "./company-profile-collection.js";
 import {
   companyProfile,
   formatProfileMarkdown,
+  normalizeCompanyProfile,
   type CompanyMetrics,
   type CompanyProfile,
 } from "./company-state.js";
@@ -11,9 +12,10 @@ import type { CompanyScope } from "./tenant.js";
 
 export function mergeCompanyProfile(
   current: CompanyProfile,
-  patch: Partial<Omit<CompanyProfile, "metrics" | "goals">> & {
+  patch: Partial<Omit<CompanyProfile, "metrics" | "goals" | "researchSources">> & {
     metrics?: Partial<CompanyMetrics>;
     goals?: string[];
+    researchSources?: CompanyProfile["researchSources"];
   },
 ): CompanyProfile {
   const metrics: CompanyMetrics = {
@@ -21,19 +23,20 @@ export function mergeCompanyProfile(
     ...(patch.metrics ?? {}),
   };
 
-  return {
+  return normalizeCompanyProfile({
     ...current,
     ...patch,
     metrics,
     goals: patch.goals ?? current.goals,
+    researchSources: patch.researchSources ?? current.researchSources,
     updatedAt: new Date().toISOString(),
-  };
+  });
 }
 
 export async function hydrateCompanyProfile(scope: CompanyScope): Promise<void> {
   const stored = await getCompanyProfileCollection().get(scope);
   if (stored) {
-    companyProfile.update(() => stored);
+    companyProfile.update(() => normalizeCompanyProfile(stored));
   }
 }
 

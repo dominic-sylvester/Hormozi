@@ -62,7 +62,8 @@
     ],
     "company_state_tools": [
       "get_company_profile",
-      "update_company_profile"
+      "update_company_profile",
+      "research_company_from_url"
     ],
     "persistence": "content-collection",
     "content_collections": {
@@ -75,8 +76,10 @@
       "smoke/ceo-loads-hooks-skill",
       "smoke/ceo-delegates-growth",
       "smoke/ceo-loads-company-setup-skill",
+      "smoke/ceo-researches-company-from-url",
       "routing/launch-offer-loads-workflow-skill",
       "integration/company-setup-multi-turn",
+      "integration/company-url-onboarding",
       "integration/profile-delegate-workflow",
       "integration/profile-persists-collection"
     ],

@@ -11,9 +11,16 @@ const STARTER_PROMPTS = [
   "Write 5 hooks for my core offer",
 ] as const;
 
+function buildWebsiteOnboardingMessage(url: string): string {
+  const trimmed = url.trim();
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return `Research my company from ${withProtocol} and onboard my profile. Present a draft summary and ask me to confirm before saving.`;
+}
+
 export function AdvisorChat() {
   const agent = useEveAgent();
   const [draft, setDraft] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const isBusy = agent.status === "submitted" || agent.status === "streaming";
 
@@ -37,6 +44,15 @@ export function AdvisorChat() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await sendMessage(draft);
+  }
+
+  async function onWebsiteSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!websiteUrl.trim()) {
+      return;
+    }
+    await sendMessage(buildWebsiteOnboardingMessage(websiteUrl));
+    setWebsiteUrl("");
   }
 
   return (
@@ -64,8 +80,29 @@ export function AdvisorChat() {
               <h2>Where should we start?</h2>
               <p>
                 Ask about offers, leads, pricing, retention, or run a full company workflow.
-                On first visit, the CEO will onboard your company profile.
+                On first visit, onboard manually or paste your company website below for research-backed setup.
               </p>
+              <form className="onboarding-url-form" onSubmit={(event) => void onWebsiteSubmit(event)}>
+                <label htmlFor="company-website">Existing company website</label>
+                <div className="onboarding-url-row">
+                  <input
+                    id="company-website"
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://yourcompany.com"
+                    value={websiteUrl}
+                    disabled={isBusy}
+                    onChange={(event) => setWebsiteUrl(event.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    disabled={isBusy || websiteUrl.trim().length === 0}
+                  >
+                    Research & onboard
+                  </button>
+                </div>
+              </form>
               <div className="starter-grid">
                 {STARTER_PROMPTS.map((prompt) => (
                   <button

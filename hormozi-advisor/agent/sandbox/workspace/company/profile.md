@@ -5,11 +5,20 @@
 ## Identity
 
 - **Company:** (unset)
+- **Website:** (unset)
 - **Offer:** (unset)
 - **Avatar (ICP):** (unset)
 - **Promise:** (unset)
 - **Price point:** (unset)
 - **Primary channel:** (unset)
+
+## Research
+
+(none yet)
+
+### Sources
+
+- (none yet)
 
 ## Metrics
 

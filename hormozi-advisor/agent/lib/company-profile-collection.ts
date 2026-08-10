@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { formatProfileMarkdown, type CompanyProfile } from "./company-state.js";
+import { formatProfileMarkdown, normalizeCompanyProfile, type CompanyProfile } from "./company-state.js";
 import type { CompanyScope } from "./tenant.js";
 
 const COLLECTION_NAME = "company-profiles";
@@ -113,7 +113,7 @@ class FileCompanyProfileCollection implements CompanyProfileCollection {
     const key = scopeKey(scope);
     try {
       const raw = await readFile(profileJsonPath(key), "utf8");
-      return JSON.parse(raw) as CompanyProfile;
+      return normalizeCompanyProfile(JSON.parse(raw) as Partial<CompanyProfile>);
     } catch {
       return null;
     }

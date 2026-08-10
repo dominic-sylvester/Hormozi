@@ -9,6 +9,11 @@ export type CompanyMetrics = {
   churnRate: number | null;
 };
 
+export type ResearchSource = {
+  url: string;
+  title: string;
+};
+
 export type CompanyProfile = {
   companyName: string;
   offer: string;
@@ -16,6 +21,9 @@ export type CompanyProfile = {
   promise: string;
   pricePoint: string;
   channel: string;
+  websiteUrl: string;
+  researchNotes: string;
+  researchSources: ResearchSource[];
   metrics: CompanyMetrics;
   goals: string[];
   updatedAt: string | null;
@@ -28,6 +36,9 @@ export const emptyCompanyProfile = (): CompanyProfile => ({
   promise: "",
   pricePoint: "",
   channel: "",
+  websiteUrl: "",
+  researchNotes: "",
+  researchSources: [],
   metrics: {
     leadsWeekly: null,
     adSpendWeekly: null,
@@ -45,9 +56,35 @@ export const companyProfile = defineState(
   emptyCompanyProfile,
 );
 
+export function normalizeCompanyProfile(
+  profile: Partial<CompanyProfile> | null | undefined,
+): CompanyProfile {
+  const base = emptyCompanyProfile();
+  if (!profile) {
+    return base;
+  }
+
+  return {
+    ...base,
+    ...profile,
+    metrics: {
+      ...base.metrics,
+      ...(profile.metrics ?? {}),
+    },
+    goals: profile.goals ?? base.goals,
+    researchSources: profile.researchSources ?? base.researchSources,
+  };
+}
+
 export function formatProfileMarkdown(profile: CompanyProfile): string {
-  const metrics = profile.metrics;
-  const goals = profile.goals.length > 0 ? profile.goals.map((g) => `- ${g}`).join("\n") : "- (none yet)";
+  const normalized = normalizeCompanyProfile(profile);
+  const metrics = normalized.metrics;
+  const goals =
+    normalized.goals.length > 0 ? normalized.goals.map((g) => `- ${g}`).join("\n") : "- (none yet)";
+  const sources =
+    normalized.researchSources.length > 0
+      ? normalized.researchSources.map((source) => `- ${source.title}: ${source.url}`).join("\n")
+      : "- (none yet)";
 
   return `# Company Profile
 
@@ -55,12 +92,21 @@ export function formatProfileMarkdown(profile: CompanyProfile): string {
 
 ## Identity
 
-- **Company:** ${profile.companyName || "(unset)"}
-- **Offer:** ${profile.offer || "(unset)"}
-- **Avatar (ICP):** ${profile.avatar || "(unset)"}
-- **Promise:** ${profile.promise || "(unset)"}
-- **Price point:** ${profile.pricePoint || "(unset)"}
-- **Primary channel:** ${profile.channel || "(unset)"}
+- **Company:** ${normalized.companyName || "(unset)"}
+- **Website:** ${normalized.websiteUrl || "(unset)"}
+- **Offer:** ${normalized.offer || "(unset)"}
+- **Avatar (ICP):** ${normalized.avatar || "(unset)"}
+- **Promise:** ${normalized.promise || "(unset)"}
+- **Price point:** ${normalized.pricePoint || "(unset)"}
+- **Primary channel:** ${normalized.channel || "(unset)"}
+
+## Research
+
+${normalized.researchNotes || "(none yet)"}
+
+### Sources
+
+${sources}
 
 ## Metrics
 
@@ -75,6 +121,6 @@ export function formatProfileMarkdown(profile: CompanyProfile): string {
 
 ${goals}
 
-_Last updated: ${profile.updatedAt ?? "never"}_
+_Last updated: ${normalized.updatedAt ?? "never"}_
 `;
 }

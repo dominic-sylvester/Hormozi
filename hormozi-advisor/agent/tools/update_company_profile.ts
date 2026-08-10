@@ -19,6 +19,13 @@ const metricsSchema = z
   })
   .strict();
 
+const researchSourceSchema = z
+  .object({
+    url: z.string(),
+    title: z.string(),
+  })
+  .strict();
+
 const updateSchema = z
   .object({
     companyName: z.string().optional(),
@@ -27,6 +34,9 @@ const updateSchema = z
     promise: z.string().optional(),
     pricePoint: z.string().optional(),
     channel: z.string().optional(),
+    websiteUrl: z.string().optional(),
+    researchNotes: z.string().optional(),
+    researchSources: z.array(researchSourceSchema).optional(),
     metrics: metricsSchema.optional(),
     goals: z.array(z.string()).optional(),
   })
