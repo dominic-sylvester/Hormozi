@@ -1976,7 +1976,9 @@ When the user is unsure where to start, suggest:
             "engines": {"node": ">=24"},
             "scripts": {
                 "dev": "eve dev",
+                "dev:web": "npm run dev --prefix web",
                 "build": "eve build",
+                "build:web": "npm run build --prefix web",
                 "start": "eve start",
                 "info": "eve info --json",
                 "eval": "EVE_EVAL=1 eve eval",
@@ -2012,7 +2014,7 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 
 - **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted in `content/company-profiles`
 - **Evals** — smoke, routing, integration, and content-collection persistence checks with `npm run eval`
-- **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
+- **HTTP channel** — `agent/channels/eve.ts` for API clients and the Vite web UI
 - **Onboarding** — `workflow-company-setup` skill for empty profiles
 - **Chunked references** — large books split under `references/sections/`
 
@@ -2040,6 +2042,8 @@ Company profiles persist in `content/company-profiles/` as JSON + markdown files
 
 ## Run locally
 
+### Agent (Eve dev server)
+
 ```bash
 cd hormozi-advisor
 npm install
@@ -2047,7 +2051,21 @@ npm run dev
 npx eve info --json
 ```
 
-Requires Node.js 24+. Set `HORMOZI_AGENT_MODEL`, `HORMOZI_DEPARTMENT_MODEL`, and `HORMOZI_SPECIALIST_MODEL` as needed.
+The Eve HTTP channel listens on port **2000** by default (`/eve/v1/*`).
+
+### Web UI (Vite + React)
+
+In a second terminal:
+
+```bash
+cd hormozi-advisor
+npm install --prefix web
+npm run dev:web
+```
+
+Open http://localhost:5173 — the Vite dev server proxies `/eve` to the Eve agent.
+
+Requires Node.js 24+. Set `HORMOZI_AGENT_MODEL`, `HORMOZI_DEPARTMENT_MODEL`, and `HORMOZI_SPECIALIST_MODEL` as needed (agent `.env`).
 
 ## Evals
 
@@ -2064,7 +2082,7 @@ npm run typecheck
         (agent_dir / "agent.ts", agent_content, "CEO agent.ts"),
         (agent_dir / "instructions.md", instructions_content, "CEO instructions"),
         (output_dir / "package.json", package_content, "package.json"),
-        (output_dir / ".gitignore", "node_modules/\n.eve/\n.env\n.env.*\n!.env.example\n", ".gitignore"),
+        (output_dir / ".gitignore", "node_modules/\n.eve/\n.env\n.env.*\n!.env.example\nweb/dist/\nweb/node_modules/\nweb/*.tsbuildinfo\n", ".gitignore"),
         (output_dir / ".npmrc", "legacy-peer-deps=true\n", ".npmrc"),
         (readme, readme_content, "README.md"),
     ]:
