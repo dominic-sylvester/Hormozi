@@ -1,5 +1,5 @@
 import react from "@vitejs/plugin-react";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 
@@ -200,8 +200,144 @@ function operatingDashboardApiPlugin(): Plugin {
   };
 }
 
+function sopsApiPlugin(): Plugin {
+  const contentRoot = join(process.cwd(), "..", "..", "content", "sops");
+
+  function scopedPath(companyId: string): string {
+    return join(contentRoot, "items", `anonymous__anonymous__${companyId}.json`);
+  }
+
+  function slugify(value: string): string {
+    return value.replace(/[^a-zA-Z0-9._-]+/g, "_") || "sop";
+  }
+
+  async function readTemplates(): Promise<Array<Record<string, unknown>>> {
+    try {
+      const files = (await readdir(join(contentRoot, "templates"))).filter((entry) => entry.endsWith(".json"));
+      const templates: Array<Record<string, unknown>> = [];
+      for (const file of files) {
+        templates.push(JSON.parse(await readFile(join(contentRoot, "templates", file), "utf8")) as Record<string, unknown>);
+      }
+      return templates;
+    } catch {
+      return [];
+    }
+  }
+
+  async function readStore(companyId: string): Promise<{ items: Array<Record<string, unknown>>; updatedAt?: string }> {
+    try {
+      return JSON.parse(await readFile(scopedPath(companyId), "utf8")) as {
+        items: Array<Record<string, unknown>>;
+        updatedAt?: string;
+      };
+    } catch {
+      return { items: [] };
+    }
+  }
+
+  async function ensureSeededStore(companyId: string): Promise<Array<Record<string, unknown>>> {
+    const store = await readStore(companyId);
+    if (store.items.length > 0) {
+      return store.items;
+    }
+
+    const templates = await readTemplates();
+    if (templates.length === 0) {
+      return [];
+    }
+
+    const seeded = templates.map((template) => ({
+      ...template,
+      updatedAt: new Date().toISOString(),
+    }));
+    await mkdir(join(contentRoot, "items"), { recursive: true });
+    await writeFile(
+      scopedPath(companyId),
+      `${JSON.stringify({ items: seeded, updatedAt: new Date().toISOString() }, null, 2)}\n`,
+      "utf8",
+    );
+    return seeded;
+  }
+
+  async function upsertSop(companyId: string, input: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const items = await ensureSeededStore(companyId);
+    const name = String(input.name ?? "").trim();
+    const id = String(input.id ?? "").trim() || slugify(name);
+    const next = {
+      id,
+      name,
+      department: String(input.department ?? "ceo"),
+      trigger: String(input.trigger ?? ""),
+      description: String(input.description ?? ""),
+      steps: Array.isArray(input.steps) ? input.steps : [],
+      linkedPlaybookSkills: Array.isArray(input.linkedPlaybookSkills) ? input.linkedPlaybookSkills : [],
+      status: String(input.status ?? "draft"),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const index = items.findIndex((item) => String(item.id) === id);
+    if (index >= 0) {
+      items[index] = next;
+    } else {
+      items.push(next);
+    }
+
+    await mkdir(join(contentRoot, "items"), { recursive: true });
+    await writeFile(
+      scopedPath(companyId),
+      `${JSON.stringify({ items, updatedAt: new Date().toISOString() }, null, 2)}\n`,
+      "utf8",
+    );
+    return next;
+  }
+
+  return {
+    name: "sops-api",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/api/sops")) {
+          next();
+          return;
+        }
+
+        try {
+          const url = new URL(req.url, "http://localhost");
+          const companyId = url.searchParams.get("companyId") ?? "default";
+
+          if (req.method === "GET") {
+            const [items, templates] = await Promise.all([ensureSeededStore(companyId), readTemplates()]);
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ companyId, sops: items, templates }));
+            return;
+          }
+
+          if (req.method === "PUT") {
+            const chunks: Buffer[] = [];
+            await new Promise<void>((resolve, reject) => {
+              req.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+              req.on("end", () => resolve());
+              req.on("error", reject);
+            });
+            const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+            const saved = await upsertSop(companyId, body);
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(saved));
+            return;
+          }
+
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+        } catch (error) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: error instanceof Error ? error.message : "sops error" }));
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), companyCatalogApiPlugin(), operatingDashboardApiPlugin()],
+  plugins: [react(), companyCatalogApiPlugin(), operatingDashboardApiPlugin(), sopsApiPlugin()],
   server: {
     port: 5173,
     proxy: {

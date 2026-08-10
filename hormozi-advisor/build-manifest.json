@@ -58,7 +58,8 @@
       "workflow-launch-offer",
       "workflow-lead-gen-audit",
       "workflow-weekly-review",
-      "workflow-retention-recovery"
+      "workflow-retention-recovery",
+      "workflow-sop-authoring"
     ],
     "company_state_tools": [
       "get_company_profile",
@@ -112,7 +113,9 @@
       "smoke/list-action-items",
       "smoke/create-action-items",
       "integration/action-items-persist",
-      "integration/spawn-action-items-from-sop"
+      "integration/spawn-action-items-from-sop",
+      "routing/sop-authoring-loads-workflow-skill",
+      "integration/sop-persists-collection"
     ],
     "schedules": [
       "weekly-operating-review",

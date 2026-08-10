@@ -265,6 +265,155 @@ code {
   font-size: 0.92rem;
 }
 
+.ops-tabs {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.ops-tab {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ops-tab.is-active {
+  background: rgba(212, 175, 55, 0.18);
+  color: #f6df9b;
+}
+
+.sop-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.sop-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.sop-template-picker {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: #bdbdbd;
+}
+
+.sop-template-picker select,
+.sop-form-grid input,
+.sop-form-grid textarea,
+.sop-form-grid select {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+}
+
+.sop-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.sop-list-pane h3,
+.sop-editor-header h3,
+.sop-steps-header h4 {
+  margin: 0;
+}
+
+.sop-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sop-list-button {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  cursor: pointer;
+}
+
+.sop-list-button.is-active {
+  border-color: rgba(212, 175, 55, 0.35);
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.sop-list-button strong {
+  display: block;
+}
+
+.sop-list-button span {
+  display: block;
+  margin-top: 0.2rem;
+  color: #a8a8a8;
+  font-size: 0.86rem;
+}
+
+.sop-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.sop-editor-header,
+.sop-steps-header,
+.sop-step-header,
+.sop-editor-actions,
+.sop-form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.sop-editor-actions,
+.sop-form-actions {
+  justify-content: flex-end;
+}
+
+.sop-form-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sop-form-grid label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: #bdbdbd;
+}
+
+.sop-span-2 {
+  grid-column: 1 / -1;
+}
+
+.sop-steps {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sop-step-card {
+  padding: 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .onboarding-url-form {
   margin-top: 1.5rem;
   text-align: left;
@@ -455,6 +604,14 @@ code {
   }
 
   .ops-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sop-layout {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  }
+
+  .sop-form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

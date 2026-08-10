@@ -32,6 +32,25 @@ const EVAL_AVATAR = {
   status: "active" as const,
 };
 
+const EVAL_WEEKLY_REVIEW_SOP = {
+  id: "weekly-review-synthesis",
+  name: "Weekly review synthesis",
+  department: "ceo",
+  trigger: "After workflow-weekly-review completes",
+  description: "Turn department reviews into prioritized action items for the next week.",
+  steps: [
+    {
+      order: 1,
+      title: "Capture what worked",
+      instruction: "List the top 3 wins from growth, monetization, sales, and success reviews.",
+      ownerRole: "ceo" as const,
+      checklist: ["Growth win", "Monetization win", "Sales or success win"],
+    },
+  ],
+  linkedPlaybookSkills: ["workflow-weekly-review"],
+  status: "active" as const,
+};
+
 export function createEvalModel() {
   return mockModel(({ lastUserMessage, toolResults, messages }) => {
     const respondingToToolResults =
@@ -108,6 +127,10 @@ export function createEvalModel() {
       return { toolCalls: [{ name: "list_action_items", input: {} }] };
     }
 
+    if (message.includes("list sops") || message.includes("list_sops") || message.includes("verify eval sop persisted") || message.includes("seed defaults")) {
+      return { toolCalls: [{ name: "list_sops", input: {} }] };
+    }
+
     if (message.includes("create eval action item") || message.includes("multi-turn create action item")) {
       return {
         toolCalls: [
@@ -119,6 +142,10 @@ export function createEvalModel() {
           },
         ],
       };
+    }
+
+    if (message.includes("multi-turn seed weekly review sop")) {
+      return { toolCalls: [{ name: "upsert_sop", input: EVAL_WEEKLY_REVIEW_SOP }] };
     }
 
     if (message.includes("spawn action items from sop") || message.includes("spawn_action_items_from_sop")) {
@@ -221,6 +248,37 @@ export function createEvalModel() {
 
     if (message.includes("company setup") || message.includes("workflow-company-setup")) {
       return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-company-setup" } }] };
+    }
+
+    if (message.includes("workflow-sop-authoring") || message.includes("create an sop")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-sop-authoring" } }] };
+    }
+
+    if (message.includes("multi-turn upsert eval sop")) {
+      return {
+        toolCalls: [
+          {
+            name: "upsert_sop",
+            input: {
+              id: "eval-sales-follow-up",
+              name: "Eval sales follow-up",
+              department: "sales",
+              trigger: "After discovery call",
+              description: "Follow up within 24 hours with proof and next step.",
+              steps: [
+                {
+                  order: 1,
+                  title: "Send recap",
+                  instruction: "Email recap with promise, proof, and CTA.",
+                  ownerRole: "sales",
+                  checklist: ["Recap sent", "Proof attached"],
+                },
+              ],
+              status: "active",
+            },
+          },
+        ],
+      };
     }
 
     if (message.includes("multi-turn launch workflow")) {

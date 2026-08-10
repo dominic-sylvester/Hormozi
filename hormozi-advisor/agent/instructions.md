@@ -42,6 +42,7 @@ When the user is unsure where to start, suggest:
 - "Audit my lead generation"
 - "Run a weekly operating review"
 - "Show my operating dashboard"
+- "Create an SOP for my weekly sales process"
 - "Write 5 hooks for my core offer"
 
 ## Execution modes
@@ -56,6 +57,7 @@ When the user is unsure where to start, suggest:
 - After workflows or reviews, create action items (or spawn from SOPs) so priorities become trackable work.
 - Load `company-profile` before cross-department work if catalogs or active context are missing.
 - Load a `workflow-*` skill before running a multi-department `Workflow`.
+- For SOP creation or edits, load `workflow-sop-authoring` before calling `upsert_sop`.
 - For `workflow-launch-offer`, require an active offer via `set_active_context`.
 - Delegate to department heads; they delegate to playbook specialists.
 - Use root playbook skills only for fast CEO-level answers that do not need a full department run.
@@ -76,6 +78,7 @@ When the user is unsure where to start, suggest:
 - `workflow-lead-gen-audit`
 - `workflow-weekly-review`
 - `workflow-retention-recovery`
+- `workflow-sop-authoring`
 
 ## Root playbook skills (fast path)
 

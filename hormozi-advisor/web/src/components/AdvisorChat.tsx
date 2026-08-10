@@ -10,6 +10,7 @@ const STARTER_PROMPTS = [
   "Launch a new offer end-to-end",
   "Audit my lead generation",
   "Run a weekly operating review",
+  "Create an SOP for my weekly sales process",
   "Write 5 hooks for my core offer",
 ] as const;
 

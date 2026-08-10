@@ -56,6 +56,8 @@ After every workflow or review:
 
 Default calendar rhythms seed on first read via `ensure_default_calendar`.
 
+Users can also author SOPs in the web UI SOP library or via the `workflow-sop-authoring` skill (CEO interviews → `upsert_sop` after confirmation).
+
 ## When to use Workflow vs delegation
 
 - One department owns the outcome → delegate to that department head only.
