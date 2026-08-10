@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-10T02:09:14.863668+00:00",
+  "generated_at": "2026-08-10T02:14:20.431732+00:00",
   "company": {
     "departments": [
       {
@@ -54,6 +54,7 @@
       }
     ],
     "workflow_skills": [
+      "workflow-company-setup",
       "workflow-launch-offer",
       "workflow-lead-gen-audit",
       "workflow-weekly-review",
@@ -68,12 +69,14 @@
       "smoke/company-profile-update",
       "smoke/ceo-loads-hooks-skill",
       "smoke/ceo-delegates-growth",
+      "smoke/ceo-loads-company-setup-skill",
       "routing/launch-offer-loads-workflow-skill"
     ],
     "schedules": [
       "weekly-operating-review",
       "monthly-unit-economics"
-    ]
+    ],
+    "chunk_threshold_default": 2000
   },
   "playbooks": [
     {

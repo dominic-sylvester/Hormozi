@@ -3,7 +3,9 @@ import { mockModel } from "eve/evals";
 export function createEvalModel() {
   return mockModel(({ lastUserMessage, toolResults }) => {
     if (toolResults.length > 0) {
-      const toolNames = toolResults.map((result) => result.toolName);
+      const toolNames = toolResults.map((result) =>
+        String((result as { toolName?: string }).toolName ?? ""),
+      );
       if (toolNames.includes("get_company_profile")) {
         return { text: "Here is the current shared company profile." };
       }
@@ -19,7 +21,7 @@ export function createEvalModel() {
       return { text: "Eval fixture step complete." };
     }
 
-    const message = lastUserMessage.toLowerCase();
+    const message = (lastUserMessage ?? "").toLowerCase();
 
     if (message.includes("read the shared company profile") || message.includes("get_company_profile")) {
       return { toolCalls: [{ name: "get_company_profile", input: {} }] };
@@ -52,6 +54,10 @@ export function createEvalModel() {
 
     if (message.includes("launch offer workflow") || message.includes("workflow-launch-offer")) {
       return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-launch-offer" } }] };
+    }
+
+    if (message.includes("company setup") || message.includes("workflow-company-setup")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-company-setup" } }] };
     }
 
     return { text: "Eval fixture acknowledgment." };

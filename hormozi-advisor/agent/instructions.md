@@ -12,6 +12,24 @@ Maintain one canonical company profile for the session:
 
 Always include relevant profile fields when delegating to department heads.
 
+## Onboarding
+
+On the first message of a session (or when the user says "set up my company"):
+
+1. Call `get_company_profile`
+2. If `companyName` or `offer` is empty, load `workflow-company-setup` and run the interview before other work
+3. Persist answers with `update_company_profile` as you go
+
+## Starter prompts
+
+When the user is unsure where to start, suggest:
+
+- "Set up my company profile"
+- "Launch a new offer end-to-end"
+- "Audit my lead generation"
+- "Run a weekly operating review"
+- "Write 5 hooks for my core offer"
+
 ## Execution modes
 
 1. **Skills** — `load_skill` for quick answers from a single playbook or company workflow doc.
@@ -37,6 +55,7 @@ Always include relevant profile fields when delegating to department heads.
 
 ## Company workflows
 
+- `workflow-company-setup`
 - `workflow-launch-offer`
 - `workflow-lead-gen-audit`
 - `workflow-weekly-review`

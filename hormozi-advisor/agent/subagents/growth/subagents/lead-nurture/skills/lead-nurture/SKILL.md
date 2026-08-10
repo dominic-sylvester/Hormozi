@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ Lead Nurture -- Alex Hormozi -- $100M, 2025.md"
   title: "Lead Nurture"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **Lead Nurture** guidance.

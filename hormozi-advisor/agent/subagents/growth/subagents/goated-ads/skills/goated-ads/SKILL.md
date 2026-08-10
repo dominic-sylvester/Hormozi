@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ GOATed Ads -- Alex Hormozi -- 2025.md"
   title: "GOATed Ads"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **GOATed Ads** guidance.

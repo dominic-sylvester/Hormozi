@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ Hooks -- Alex Hormozi -- $100M, 2025.md"
   title: "Hooks"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **Hooks** guidance.

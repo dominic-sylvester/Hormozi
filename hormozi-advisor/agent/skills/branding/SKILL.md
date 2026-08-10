@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ Branding -- Alex Hormozi -- $100M, 2025.md"
   title: "Branding"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **Branding** guidance.

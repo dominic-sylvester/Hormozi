@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ Fast Cash -- Alex Hormozi -- $100M, 2025.md"
   title: "Fast Cash"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **Fast Cash** guidance.

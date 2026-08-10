@@ -22,6 +22,7 @@ OFFERS_MARKER = "offers_"
 COMPANY_SKILL_SLUGS = (
     "company-operating-system",
     "company-profile",
+    "workflow-company-setup",
     "workflow-launch-offer",
     "workflow-lead-gen-audit",
     "workflow-weekly-review",
@@ -33,8 +34,12 @@ EVAL_IDS = (
     "smoke/company-profile-update",
     "smoke/ceo-loads-hooks-skill",
     "smoke/ceo-delegates-growth",
+    "smoke/ceo-loads-company-setup-skill",
     "routing/launch-offer-loads-workflow-skill",
 )
+
+DEFAULT_CHUNK_THRESHOLD = 2000
+MAX_SECTION_LINES = 500
 
 DEPARTMENT_SLUGS = ("growth", "monetization", "sales", "success", "brand")
 
@@ -232,38 +237,176 @@ def ensure_symlink(link_path: Path, target_path: Path, *, overwrite: bool, dry_r
     print(f"Linked reference: {link_path} -> {target_path.name}")
 
 
+def count_lines(path: Path) -> int:
+    return len(path.read_text(encoding="utf-8").splitlines())
+
+
+def unique_section_key(base: str, used: set[str]) -> str:
+    key = slugify(base)[:50] or "section"
+    if key not in used:
+        used.add(key)
+        return key
+    index = 2
+    while f"{key}-{index}" in used:
+        index += 1
+    final = f"{key}-{index}"
+    used.add(final)
+    return final
+
+
+def split_long_section(key: str, content: str, max_lines: int, used: set[str]) -> dict[str, str]:
+    lines = content.splitlines()
+    if len(lines) <= max_lines:
+        return {key: content}
+
+    parts: dict[str, str] = {}
+    for index, start in enumerate(range(0, len(lines), max_lines), start=1):
+        part_key = unique_section_key(f"{key}-part-{index:02d}", used)
+        parts[part_key] = "\n".join(lines[start : start + max_lines])
+    return parts
+
+
+def chunk_playbook_markdown(text: str, max_section_lines: int = MAX_SECTION_LINES) -> dict[str, str]:
+    used_keys: set[str] = set()
+    sections: dict[str, str] = {}
+    current_key = unique_section_key("intro", used_keys)
+    current_lines: list[str] = []
+
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if current_lines:
+                sections.update(
+                    split_long_section(current_key, "\n".join(current_lines), max_section_lines, used_keys)
+                )
+            current_key = unique_section_key(line[3:].strip(), used_keys)
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        sections.update(
+            split_long_section(current_key, "\n".join(current_lines), max_section_lines, used_keys)
+        )
+
+    return sections
+
+
+def write_playbook_references(
+    skill_dir: Path,
+    playbook: Playbook,
+    *,
+    chunk_threshold: int,
+    overwrite: bool,
+    dry_run: bool,
+) -> tuple[list[str], bool]:
+    references_dir = skill_dir / "references"
+    playbook_link = references_dir / "playbook.md"
+    sections_dir = references_dir / "sections"
+    line_count = count_lines(playbook.path)
+    chunked = line_count > chunk_threshold
+
+    ensure_symlink(playbook_link, playbook.path, overwrite=overwrite, dry_run=dry_run)
+
+    section_refs: list[str] = []
+    if not chunked:
+        return section_refs, False
+
+    if dry_run:
+        print(f"[dry-run] chunk sections: {sections_dir} ({line_count} lines)")
+        return ["references/sections/…"], True
+
+    if sections_dir.exists() and overwrite:
+        shutil.rmtree(sections_dir)
+
+    sections = chunk_playbook_markdown(playbook.path.read_text(encoding="utf-8"))
+    index_lines = ["# Section index", "", f"Source: `{playbook.path.name}` ({line_count} lines)", ""]
+
+    for section_key, section_body in sections.items():
+        section_path = sections_dir / f"{section_key}.md"
+        section_path.parent.mkdir(parents=True, exist_ok=True)
+        section_path.write_text(section_body + "\n", encoding="utf-8")
+        rel = f"references/sections/{section_key}.md"
+        section_refs.append(rel)
+        index_lines.append(f"- `{rel}`")
+
+    index_lines.extend(
+        [
+            "",
+            "Prefer section files over reading the full `references/playbook.md` for this title.",
+        ]
+    )
+    write_text(
+        references_dir / "index.md",
+        "\n".join(index_lines) + "\n",
+        overwrite=overwrite,
+        dry_run=False,
+        label=f"section index for {playbook.slug}",
+    )
+    print(f"Chunked {playbook.slug}: {len(sections)} sections ({line_count} lines)")
+    return section_refs, True
+
+
 def write_playbook_skill(
     skill_dir: Path,
     playbook: Playbook,
     *,
+    chunk_threshold: int,
     overwrite: bool,
     dry_run: bool,
 ) -> None:
+    section_refs, chunked = write_playbook_references(
+        skill_dir,
+        playbook,
+        chunk_threshold=chunk_threshold,
+        overwrite=overwrite,
+        dry_run=dry_run,
+    )
     skill_md = skill_dir / "SKILL.md"
-    reference_link = skill_dir / "references" / "playbook.md"
     headings = extract_headings(playbook.path.read_text(encoding="utf-8"))
     heading_lines = "\n".join(f"- {heading}" for heading in headings) or "- Full playbook"
 
+    if chunked and section_refs:
+        reference_block = "\n".join(
+            [
+                "Primary reference (large book — prefer sections):",
+                "",
+                "- `references/index.md`",
+                *[f"- `{ref}`" for ref in section_refs[:20]],
+                *(["- …"] if len(section_refs) > 20 else []),
+                "- `references/playbook.md` (full symlinked source)",
+            ]
+        )
+        step_one = "Read the smallest relevant file under `references/sections/` (use `references/index.md` to choose)."
+    else:
+        reference_block = "\n".join(
+            [
+                "Primary reference:",
+                "",
+                "- `references/playbook.md`",
+            ]
+        )
+        step_one = "Read `references/playbook.md` for the authoritative source material."
+
+    chunked_value = "true" if chunked else "false"
     content = f"""---
 description: {playbook.description}
 metadata:
   source: "{playbook.path.name}"
   title: "{playbook.title}"
   series: "{playbook.series}"
+  chunked: "{chunked_value}"
 ---
 
 You are applying Alex Hormozi's **{playbook.title}** guidance.
 
 When this skill is loaded:
 
-1. Read `references/playbook.md` for the authoritative source material.
+1. {step_one}
 2. Prefer concrete frameworks, checklists, and examples from the reference over generic advice.
 3. Name the framework or section you are applying when possible.
 4. If the question spans multiple topics, say so and ask whether to load another playbook skill.
 
-Primary reference:
-
-- `references/playbook.md`
+{reference_block}
 
 Section guide (read the matching portion of the reference):
 
@@ -271,13 +414,13 @@ Section guide (read the matching portion of the reference):
 """
 
     write_text(skill_md, content, overwrite=overwrite, dry_run=dry_run, label="skill")
-    ensure_symlink(reference_link, playbook.path, overwrite=overwrite, dry_run=dry_run)
 
 
 def write_playbook_specialist(
     subagent_dir: Path,
     playbook: Playbook,
     *,
+    chunk_threshold: int,
     overwrite: bool,
     dry_run: bool,
 ) -> None:
@@ -313,7 +456,13 @@ export default defineAgent({{
         label="specialist instructions",
     )
     if not dry_run:
-        write_playbook_skill(skill_dir, playbook, overwrite=overwrite, dry_run=False)
+        write_playbook_skill(
+            skill_dir,
+            playbook,
+            chunk_threshold=chunk_threshold,
+            overwrite=overwrite,
+            dry_run=False,
+        )
 
 
 def write_department(
@@ -321,6 +470,7 @@ def write_department(
     department: Department,
     playbooks_by_slug: dict[str, Playbook],
     *,
+    chunk_threshold: int,
     overwrite: bool,
     dry_run: bool,
 ) -> None:
@@ -399,6 +549,7 @@ metadata:
         write_playbook_specialist(
             dept_dir / "subagents" / slug,
             playbooks_by_slug[slug],
+            chunk_threshold=chunk_threshold,
             overwrite=overwrite,
             dry_run=dry_run,
         )
@@ -449,6 +600,32 @@ Department heads do not have direct access to those tools. The CEO must paste re
 
 - One department owns the outcome → delegate to that department head only.
 - Launch, audit, or review spans multiple departments → load the matching `workflow-*` skill, then run `Workflow`.
+""",
+        "workflow-company-setup": """---
+description: Use when onboarding a new company, the profile is empty, or the user wants to set up ICP, offer, metrics, and goals before other work.
+---
+
+# Workflow: Company Setup
+
+Run at the start of a new session when `companyName` or `offer` is empty.
+
+## Interview (batch questions)
+
+Ask in 2–3 small batches, not one wall of questions:
+
+1. Company name, core offer, and promise
+2. ICP / avatar and primary acquisition channel
+3. Price point, current weekly metrics, and top 3 goals
+
+## Persist
+
+After each batch, call `update_company_profile` with confirmed fields.
+
+## Finish
+
+1. Call `get_company_profile` and show a concise summary
+2. Recommend the first workflow: launch offer, lead gen audit, or weekly review
+3. Do not delegate to departments until offer and avatar are set
 """,
         "workflow-launch-offer": """---
 description: Use when launching a new offer, product, or campaign that needs offer design, proof, hooks, and a go-to-market plan.
@@ -728,7 +905,9 @@ export function resolveModel(role: ModelRole = "ceo") {
 export function createEvalModel() {
   return mockModel(({ lastUserMessage, toolResults }) => {
     if (toolResults.length > 0) {
-      const toolNames = toolResults.map((result) => result.toolName);
+      const toolNames = toolResults.map((result) =>
+        String((result as { toolName?: string }).toolName ?? ""),
+      );
       if (toolNames.includes("get_company_profile")) {
         return { text: "Here is the current shared company profile." };
       }
@@ -744,7 +923,7 @@ export function createEvalModel() {
       return { text: "Eval fixture step complete." };
     }
 
-    const message = lastUserMessage.toLowerCase();
+    const message = (lastUserMessage ?? "").toLowerCase();
 
     if (message.includes("read the shared company profile") || message.includes("get_company_profile")) {
       return { toolCalls: [{ name: "get_company_profile", input: {} }] };
@@ -777,6 +956,10 @@ export function createEvalModel() {
 
     if (message.includes("launch offer workflow") || message.includes("workflow-launch-offer")) {
       return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-launch-offer" } }] };
+    }
+
+    if (message.includes("company setup") || message.includes("workflow-company-setup")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-company-setup" } }] };
     }
 
     return { text: "Eval fixture acknowledgment." };
@@ -1004,7 +1187,8 @@ export default defineEvalConfig({
     "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["node"]
   },
   "include": ["agent/**/*.ts", "evals/**/*.ts"]
 }
@@ -1071,6 +1255,18 @@ export default defineEval({
   },
 });
 """,
+        "smoke/ceo-loads-company-setup-skill.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO loads the company setup workflow for onboarding.",
+  tags: ["smoke", "onboarding"],
+  async test(t) {
+    await t.send("EVE_EVAL: run company setup workflow for a new business.");
+    t.succeeded();
+    t.loadedSkill("workflow-company-setup", { count: 1 });
+  },
+});
+""",
     }
 
     write_text(evals_dir / "evals.config.ts", evals_config, overwrite=overwrite, dry_run=dry_run, label="evals.config.ts")
@@ -1084,6 +1280,83 @@ export default defineEval({
             dry_run=dry_run,
             label=f"eval {relative_path}",
         )
+
+
+def write_eve_channel(output_dir: Path, *, overwrite: bool, dry_run: bool) -> None:
+    content = """import { eveChannel } from "eve/channels/eve";
+import { localDev, vercelOidc } from "eve/channels/auth";
+
+export default eveChannel({
+  auth: [vercelOidc(), localDev()],
+  cors: true,
+});
+"""
+    write_text(
+        output_dir / "agent" / "channels" / "eve.ts",
+        content,
+        overwrite=overwrite,
+        dry_run=dry_run,
+        label="eve channel",
+    )
+
+
+def write_env_example(output_dir: Path, *, overwrite: bool, dry_run: bool) -> None:
+    content = """# Copy to .env and fill in for local development or deployment.
+
+# Model routing (Vercel AI Gateway model ids)
+HORMOZI_AGENT_MODEL=anthropic/claude-sonnet-4.6
+HORMOZI_DEPARTMENT_MODEL=
+HORMOZI_SPECIALIST_MODEL=
+
+# Vercel AI Gateway — required for non-eval runs
+AI_GATEWAY_API_KEY=
+
+# Set to 1 for deterministic eve eval fixtures (npm run eval)
+EVE_EVAL=0
+"""
+    write_text(
+        output_dir / ".env.example",
+        content,
+        overwrite=overwrite,
+        dry_run=dry_run,
+        label=".env.example",
+    )
+
+
+def write_github_ci(repo_root: Path, *, overwrite: bool, dry_run: bool) -> None:
+    workflow = """name: Hormozi evals
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hormozi-advisor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: hormozi-advisor/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run eval:strict
+        env:
+          EVE_EVAL: "1"
+"""
+    write_text(
+        repo_root / ".github" / "workflows" / "hormozi-evals.yml",
+        workflow,
+        overwrite=overwrite,
+        dry_run=dry_run,
+        label="GitHub Actions eval workflow",
+    )
 
 
 def write_workflow_tool(output_dir: Path, *, overwrite: bool, dry_run: bool) -> None:
@@ -1186,6 +1459,24 @@ Maintain one canonical company profile for the session:
 
 Always include relevant profile fields when delegating to department heads.
 
+## Onboarding
+
+On the first message of a session (or when the user says "set up my company"):
+
+1. Call `get_company_profile`
+2. If `companyName` or `offer` is empty, load `workflow-company-setup` and run the interview before other work
+3. Persist answers with `update_company_profile` as you go
+
+## Starter prompts
+
+When the user is unsure where to start, suggest:
+
+- "Set up my company profile"
+- "Launch a new offer end-to-end"
+- "Audit my lead generation"
+- "Run a weekly operating review"
+- "Write 5 hooks for my core offer"
+
 ## Execution modes
 
 1. **Skills** — `load_skill` for quick answers from a single playbook or company workflow doc.
@@ -1236,6 +1527,7 @@ Always include relevant profile fields when delegating to department heads.
                 "zod": "^4.0.0",
             },
             "devDependencies": {
+                "@types/node": "^24.0.0",
                 "typescript": "^5.9.0",
             },
         },
@@ -1258,6 +1550,9 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 
 - **Shared company state** — session profile via `get_company_profile` / `update_company_profile`
 - **Evals** — smoke and routing checks with `npm run eval`
+- **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
+- **Onboarding** — `workflow-company-setup` skill for empty profiles
+- **Chunked references** — large books split under `references/sections/`
 
 ## Regenerate
 
@@ -1265,6 +1560,14 @@ From the repository root:
 
 ```bash
 python3 scripts/build_agents.py --input . --output ./hormozi-advisor --overwrite
+```
+
+Optional: `--chunk-threshold 2000` (default) splits large books into section files.
+
+Copy environment variables:
+
+```bash
+cp .env.example .env
 ```
 
 Playbook references are symlinked to markdown files in the repository root.
@@ -1325,6 +1628,7 @@ def write_manifest(
             "company_state_tools": ["get_company_profile", "update_company_profile"],
             "evals": list(EVAL_IDS),
             "schedules": ["weekly-operating-review", "monthly-unit-economics"],
+            "chunk_threshold_default": DEFAULT_CHUNK_THRESHOLD,
         },
         "playbooks": [
             {
@@ -1394,7 +1698,9 @@ def cleanup_stale_generated(
 def build_agents(
     input_dir: Path,
     output_dir: Path,
+    repo_root: Path,
     *,
+    chunk_threshold: int = DEFAULT_CHUNK_THRESHOLD,
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> int:
@@ -1428,6 +1734,9 @@ def build_agents(
 
     write_root_agent(output_dir, playbooks, overwrite=overwrite, dry_run=dry_run)
     write_company_state(output_dir, overwrite=overwrite, dry_run=dry_run)
+    write_eve_channel(output_dir, overwrite=overwrite, dry_run=dry_run)
+    write_env_example(output_dir, overwrite=overwrite, dry_run=dry_run)
+    write_github_ci(repo_root, overwrite=overwrite, dry_run=dry_run)
     write_workflow_tool(output_dir, overwrite=overwrite, dry_run=dry_run)
     write_schedules(output_dir, overwrite=overwrite, dry_run=dry_run)
     write_company_skills(output_dir, overwrite=overwrite, dry_run=dry_run)
@@ -1437,6 +1746,7 @@ def build_agents(
         write_playbook_skill(
             output_dir / "agent" / "skills" / playbook.slug,
             playbook,
+            chunk_threshold=chunk_threshold,
             overwrite=overwrite,
             dry_run=dry_run,
         )
@@ -1446,6 +1756,7 @@ def build_agents(
             output_dir / "agent" / "subagents" / department.slug,
             department,
             playbooks_by_slug,
+            chunk_threshold=chunk_threshold,
             overwrite=overwrite,
             dry_run=dry_run,
         )
@@ -1470,6 +1781,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-o", "--output", type=Path, default=Path("hormozi-advisor"))
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--chunk-threshold",
+        type=int,
+        default=DEFAULT_CHUNK_THRESHOLD,
+        help=f"Line count above which playbook references are chunked (default: {DEFAULT_CHUNK_THRESHOLD})",
+    )
     return parser.parse_args()
 
 
@@ -1485,6 +1802,8 @@ def main() -> int:
     return build_agents(
         input_dir,
         output_dir,
+        input_dir,
+        chunk_threshold=args.chunk_threshold,
         overwrite=args.overwrite,
         dry_run=args.dry_run,
     )

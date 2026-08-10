@@ -12,6 +12,9 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 
 - **Shared company state** — session profile via `get_company_profile` / `update_company_profile`
 - **Evals** — smoke and routing checks with `npm run eval`
+- **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
+- **Onboarding** — `workflow-company-setup` skill for empty profiles
+- **Chunked references** — large books split under `references/sections/`
 
 ## Regenerate
 
@@ -19,6 +22,14 @@ From the repository root:
 
 ```bash
 python3 scripts/build_agents.py --input . --output ./hormozi-advisor --overwrite
+```
+
+Optional: `--chunk-threshold 2000` (default) splits large books into section files.
+
+Copy environment variables:
+
+```bash
+cp .env.example .env
 ```
 
 Playbook references are symlinked to markdown files in the repository root.

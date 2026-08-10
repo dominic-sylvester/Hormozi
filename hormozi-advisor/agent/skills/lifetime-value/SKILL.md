@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ Lifetime Value -- Alex Hormozi -- 2025.md"
   title: "Lifetime Value"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **Lifetime Value** guidance.

@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ Retention -- Alex Hormozi -- $100M, 2025.md"
   title: "Retention"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **Retention** guidance.

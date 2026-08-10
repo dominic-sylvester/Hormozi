@@ -4,6 +4,7 @@ metadata:
   source: "$100M Playbook_ Price Raise -- Alex Hormozi -- $100M, 2025.md"
   title: "Price Raise"
   series: "playbook"
+  chunked: "false"
 ---
 
 You are applying Alex Hormozi's **Price Raise** guidance.
