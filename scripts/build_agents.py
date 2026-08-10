@@ -35,8 +35,12 @@ EVAL_IDS = (
     "smoke/ceo-loads-hooks-skill",
     "smoke/ceo-delegates-growth",
     "smoke/ceo-loads-company-setup-skill",
+    "smoke/ceo-researches-company-from-url",
+    "smoke/set-active-context",
+    "smoke/create-company",
     "routing/launch-offer-loads-workflow-skill",
     "integration/company-setup-multi-turn",
+    "integration/company-url-onboarding",
     "integration/profile-delegate-workflow",
     "integration/profile-persists-collection",
 )
@@ -2109,7 +2113,18 @@ def write_manifest(
                 for dept in DEPARTMENTS
             ],
             "workflow_skills": [slug for slug in COMPANY_SKILL_SLUGS if slug.startswith("workflow-")],
-            "company_state_tools": ["get_company_profile", "update_company_profile"],
+            "company_state_tools": [
+                "get_company_profile",
+                "get_company_catalog",
+                "update_company_profile",
+                "upsert_offer",
+                "upsert_avatar",
+                "set_active_context",
+                "list_companies",
+                "create_company",
+                "select_company",
+                "research_company_from_url",
+            ],
             "persistence": "content-collection",
             "content_collections": {
                 "playbooks": "sources/collection.json",
@@ -2260,7 +2275,7 @@ def build_agents(
         f"\nDone. Generated Hormozi company in {output_dir}: "
         f"{len(DEPARTMENTS)} departments, {specialist_count} specialists, "
         f"{len(playbooks)} root skills, {len(COMPANY_SKILL_SLUGS)} company skills, "
-        f"2 company-state tools, {len(EVAL_IDS)} evals, 1 workflow tool, 2 schedules"
+        f"10 company-state tools, {len(EVAL_IDS)} evals, 1 workflow tool, 2 schedules"
     )
     return 0
 

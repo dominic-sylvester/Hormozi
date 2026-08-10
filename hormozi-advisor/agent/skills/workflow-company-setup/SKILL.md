@@ -4,22 +4,32 @@ description: Use when onboarding a new company, the profile is empty, or the use
 
 # Workflow: Company Setup
 
-Run at the start of a new session when `companyName` or `offer` is empty.
+Run when `companyName` is empty or the offers catalog has no active entries.
 
-## Interview (batch questions)
+## Path A — Website URL provided
 
-Ask in 2–3 small batches, not one wall of questions:
+1. Call `research_company_from_url`
+2. Present inferred **offers catalog** and **avatars catalog** as draft tables
+3. Ask the user to confirm, rename, add, or remove entries
+4. Persist with:
+   - `update_company_profile` for company identity + research notes
+   - `upsert_offer` for each confirmed offer
+   - `upsert_avatar` for each confirmed avatar
+5. Call `set_active_context` with the primary offer + avatar the user chooses
+6. Ask only for company-level gaps: weekly metrics and top 3 goals
 
-1. Company name, core offer, and promise
-2. ICP / avatar and primary acquisition channel
-3. Price point, current weekly metrics, and top 3 goals
+## Path B — Manual interview
 
-## Persist
+Ask in 2–3 batches:
 
-After each batch, call `update_company_profile` with confirmed fields.
+1. Company name, website, brand promise
+2. First offer (name, promise, price, channel) and primary ICP
+3. Additional offers/avatars if mentioned; company metrics and goals
 
-## Finish
+After each batch, upsert offers/avatars and update company fields.
 
-1. Call `get_company_profile` and show a concise summary
-2. Recommend the first workflow: launch offer, lead gen audit, or weekly review
-3. Do not delegate to departments until offer and avatar are set
+## Finish (both paths)
+
+1. Call `get_company_profile` and summarize company + active context
+2. Recommend first workflow (`workflow-launch-offer`, lead gen audit, or weekly review)
+3. Do not delegate until active offer and avatar are set

@@ -25,3 +25,9 @@ return { growth, monetization, salesReview, success };
 ```
 
 CEO synthesizes into priorities for next week.
+
+## After the workflow
+
+1. Call `get_operating_dashboard` to see open work.
+2. Spawn follow-ups with `spawn_action_items_from_sop` using `weekly-review-synthesis`, or `create_action_items` for custom priorities.
+3. Assign each priority an owner department and due date when the user provides a timeline.

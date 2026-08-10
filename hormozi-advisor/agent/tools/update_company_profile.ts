@@ -19,14 +19,20 @@ const metricsSchema = z
   })
   .strict();
 
+const researchSourceSchema = z
+  .object({
+    url: z.string(),
+    title: z.string(),
+  })
+  .strict();
+
 const updateSchema = z
   .object({
     companyName: z.string().optional(),
-    offer: z.string().optional(),
-    avatar: z.string().optional(),
-    promise: z.string().optional(),
-    pricePoint: z.string().optional(),
-    channel: z.string().optional(),
+    websiteUrl: z.string().optional(),
+    brandPromise: z.string().optional(),
+    researchNotes: z.string().optional(),
+    researchSources: z.array(researchSourceSchema).optional(),
     metrics: metricsSchema.optional(),
     goals: z.array(z.string()).optional(),
   })
@@ -34,7 +40,7 @@ const updateSchema = z
 
 export default defineTool({
   description:
-    "Update the shared company profile. Partial updates merge into session state, persist to the company-profiles content collection, and sync to /workspace/company/profile.md.",
+    "Update company-level profile fields (identity, research notes, company metrics, goals). Use upsert_offer and upsert_avatar for catalog entries.",
   inputSchema: updateSchema,
   async execute(input, ctx) {
     const scope = resolveCompanyScope(ctx);

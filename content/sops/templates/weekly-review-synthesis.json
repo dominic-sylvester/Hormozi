@@ -1,0 +1,35 @@
+{
+  "id": "weekly-review-synthesis",
+  "name": "Weekly review synthesis",
+  "department": "ceo",
+  "trigger": "After workflow-weekly-review completes",
+  "description": "Turn department reviews into prioritized action items for the next week.",
+  "steps": [
+    {
+      "order": 1,
+      "title": "Capture what worked",
+      "instruction": "List the top 3 wins from growth, monetization, sales, and success reviews.",
+      "ownerRole": "ceo",
+      "estimatedMinutes": 10,
+      "checklist": ["Growth win", "Monetization win", "Sales or success win"]
+    },
+    {
+      "order": 2,
+      "title": "Capture what broke",
+      "instruction": "List bottlenecks, missed targets, and root causes from each department review.",
+      "ownerRole": "ceo",
+      "estimatedMinutes": 10,
+      "checklist": ["Metric misses", "Process gaps", "Proof or offer gaps"]
+    },
+    {
+      "order": 3,
+      "title": "Set top 3 priorities",
+      "instruction": "Pick three priorities for next week and assign an owning department to each.",
+      "ownerRole": "ceo",
+      "estimatedMinutes": 15,
+      "checklist": ["Priority 1 + owner", "Priority 2 + owner", "Priority 3 + owner"]
+    }
+  ],
+  "linkedPlaybookSkills": ["workflow-weekly-review"],
+  "status": "active"
+}

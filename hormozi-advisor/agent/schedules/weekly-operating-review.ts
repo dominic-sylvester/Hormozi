@@ -12,5 +12,10 @@ Deliver:
 1. What worked
 2. What broke
 3. Top 3 priorities for next week
-4. Which department owns each priority`,
+4. Which department owns each priority
+
+Then spawn follow-up work:
+- Call ensure_default_calendar if the operating calendar is empty
+- Spawn action items from the weekly-review-synthesis SOP (or create_action_items for custom priorities)
+- Share get_operating_dashboard so the user sees the updated inbox`,
 });

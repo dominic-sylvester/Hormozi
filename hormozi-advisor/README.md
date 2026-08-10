@@ -10,10 +10,12 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 - **Workflow tool** — cross-department orchestration
 - **Schedules** — weekly operating review, monthly unit economics
 
-- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted in `content/company-profiles`
+- **Shared company state** — layered profile (company → offers catalog → avatars catalog → active context), persisted in `content/company-profiles`
+- **URL onboarding** — `research_company_from_url` infers multiple draft offers/avatars for confirmation
+- **Multi-company** — `list_companies`, `create_company`, `select_company` for multiple businesses per user
 - **Evals** — smoke, routing, integration, and content-collection persistence checks with `npm run eval`
 - **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
-- **Onboarding** — `workflow-company-setup` skill for empty profiles
+- **Onboarding** — `workflow-company-setup` (manual or URL research with multi-offer/avatar catalogs)
 - **Chunked references** — large books split under `references/sections/`
 
 ## Regenerate

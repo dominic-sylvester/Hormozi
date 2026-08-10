@@ -1,11 +1,11 @@
 import { defineEval } from "eve/evals";
 
 export default defineEval({
-  description: "CEO updates the shared company profile via update_company_profile.",
+  description: "CEO upserts an offer into the shared catalog.",
   tags: ["smoke", "company-state"],
   async test(t) {
-    await t.send("EVE_EVAL: update the shared company profile for Eval Fitness Co.");
+    await t.send("EVE_EVAL: upsert eval offer for Eval Fitness Co.");
+    t.calledTool("upsert_offer", { count: 1 });
     t.succeeded();
-    t.calledTool("update_company_profile", { count: 1 });
   },
 });
