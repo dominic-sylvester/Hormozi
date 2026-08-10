@@ -12,19 +12,15 @@
     "info": "eve info --json",
     "eval": "EVE_EVAL=1 eve eval",
     "eval:strict": "EVE_EVAL=1 eve eval --strict",
-    "typecheck": "tsc --noEmit",
-    "db:migrate": "node --experimental-strip-types scripts/db-migrate.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "ai": "^7.0.38",
     "eve": "^0.30.8",
-    "pg": "^8.16.3",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "@types/pg": "^8.15.5",
-    "microsandbox": "^0.6.8",
     "typescript": "^5.9.0"
   }
 }

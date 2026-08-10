@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-10T02:20:05.616286+00:00",
+  "generated_at": "2026-08-10T02:25:45.966407+00:00",
   "company": {
     "departments": [
       {
@@ -64,8 +64,11 @@
       "get_company_profile",
       "update_company_profile"
     ],
-    "persistence": "postgres",
-    "content_collection": "sources/collection.json",
+    "persistence": "content-collection",
+    "content_collections": {
+      "playbooks": "sources/collection.json",
+      "company_profiles": "content/company-profiles/collection.json"
+    },
     "evals": [
       "smoke/company-profile-read",
       "smoke/company-profile-update",
@@ -75,7 +78,7 @@
       "routing/launch-offer-loads-workflow-skill",
       "integration/company-setup-multi-turn",
       "integration/profile-delegate-workflow",
-      "integration/profile-persists-postgres"
+      "integration/profile-persists-collection"
     ],
     "schedules": [
       "weekly-operating-review",

@@ -1,0 +1,5 @@
+content/company-profiles/items/*
+!content/company-profiles/items/.gitkeep
+
+# Runtime index updates when profiles are saved locally
+content/company-profiles/collection.json

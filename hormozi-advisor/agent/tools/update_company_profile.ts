@@ -34,7 +34,7 @@ const updateSchema = z
 
 export default defineTool({
   description:
-    "Update the shared company profile. Partial updates merge into session state, persist to Postgres when DATABASE_URL is set, and sync to /workspace/company/profile.md.",
+    "Update the shared company profile. Partial updates merge into session state, persist to the company-profiles content collection, and sync to /workspace/company/profile.md.",
   inputSchema: updateSchema,
   async execute(input, ctx) {
     const scope = resolveCompanyScope(ctx);

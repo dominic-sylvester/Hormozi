@@ -1,6 +1,6 @@
 import type { ToolContext } from "eve/tools";
 
-import { getCompanyStore } from "./company-store.js";
+import { getCompanyProfileCollection } from "./company-profile-collection.js";
 import {
   companyProfile,
   formatProfileMarkdown,
@@ -31,12 +31,7 @@ export function mergeCompanyProfile(
 }
 
 export async function hydrateCompanyProfile(scope: CompanyScope): Promise<void> {
-  const store = getCompanyStore();
-  if (!store) {
-    return;
-  }
-
-  const stored = await store.get(scope);
+  const stored = await getCompanyProfileCollection().get(scope);
   if (stored) {
     companyProfile.update(() => stored);
   }
@@ -46,12 +41,7 @@ export async function persistCompanyProfile(
   scope: CompanyScope,
   profile: CompanyProfile,
 ): Promise<void> {
-  const store = getCompanyStore();
-  if (!store) {
-    return;
-  }
-
-  await store.put(scope, profile);
+  await getCompanyProfileCollection().put(scope, profile);
 }
 
 export async function syncProfileToSandbox(

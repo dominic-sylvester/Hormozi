@@ -38,7 +38,7 @@ EVAL_IDS = (
     "routing/launch-offer-loads-workflow-skill",
     "integration/company-setup-multi-turn",
     "integration/profile-delegate-workflow",
-    "integration/profile-persists-postgres",
+    "integration/profile-persists-collection",
 )
 
 DEFAULT_CHUNK_THRESHOLD = 2000
@@ -262,6 +262,50 @@ def write_content_collection(
         dry_run=dry_run,
         label="content collection",
     )
+
+
+def write_company_profiles_collection(repo_root: Path, *, dry_run: bool) -> None:
+    collection_dir = repo_root / "content" / "company-profiles"
+    payload = {
+        "version": 1,
+        "collection": "company-profiles",
+        "description": "Persisted company profiles keyed by tenant, user, and company id.",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "items": [],
+    }
+    write_text(
+        collection_dir / "collection.json",
+        json.dumps(payload, indent=2) + "\n",
+        overwrite=False,
+        dry_run=dry_run,
+        label="company profiles collection",
+    )
+    items_dir = collection_dir / "items"
+    if not dry_run:
+        items_dir.mkdir(parents=True, exist_ok=True)
+        gitkeep = items_dir / ".gitkeep"
+        if not gitkeep.exists():
+            gitkeep.write_text("", encoding="utf-8")
+
+
+def cleanup_postgres_artifacts(output_dir: Path, *, dry_run: bool) -> None:
+    stale_paths = [
+        output_dir / "agent" / "lib" / "company-store.ts",
+        output_dir / "db",
+        output_dir / "scripts" / "db-migrate.ts",
+        output_dir / "evals" / "integration" / "profile-persists-postgres.eval.ts",
+    ]
+    for path in stale_paths:
+        if not path.exists():
+            continue
+        if dry_run:
+            print(f"[dry-run] remove stale artifact: {path}")
+            continue
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        print(f"Removed stale artifact: {path}")
 
 
 def os_path_relpath(target: Path, start: Path) -> str:
@@ -1121,7 +1165,7 @@ const updateSchema = z
 
 export default defineTool({
   description:
-    "Update the shared company profile. Partial updates merge into session state, persist to Postgres when DATABASE_URL is set, and sync to /workspace/company/profile.md.",
+    "Update the shared company profile. Partial updates merge into session state, persist to the company-profiles content collection, and sync to /workspace/company/profile.md.",
   inputSchema: updateSchema,
   async execute(input, ctx) {
     const scope = resolveCompanyScope(ctx);
@@ -1160,91 +1204,171 @@ export function resolveCompanyScope(ctx: SessionContext): CompanyScope {
 }
 """
 
-    company_store_ts = """import pg from "pg";
+    company_profile_collection_ts = """import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
-import type { CompanyProfile } from "./company-state.js";
+import { formatProfileMarkdown, type CompanyProfile } from "./company-state.js";
 import type { CompanyScope } from "./tenant.js";
 
-export interface CompanyStore {
-  ensureSchema(): Promise<void>;
+const COLLECTION_NAME = "company-profiles";
+
+type CollectionIndex = {
+  version: number;
+  collection: string;
+  description: string;
+  updated_at: string;
+  items: CollectionItem[];
+};
+
+type CollectionItem = {
+  key: string;
+  tenant_id: string;
+  user_id: string;
+  company_id: string;
+  file: string;
+  markdown: string;
+  updated_at: string;
+};
+
+export interface CompanyProfileCollection {
   get(scope: CompanyScope): Promise<CompanyProfile | null>;
   put(scope: CompanyScope, profile: CompanyProfile): Promise<CompanyProfile>;
 }
 
-class PostgresCompanyStore implements CompanyStore {
-  private readonly pool: pg.Pool;
+function slug(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "_") || "anonymous";
+}
 
-  constructor(connectionString: string) {
-    this.pool = new pg.Pool({ connectionString });
+export function scopeKey(scope: CompanyScope): string {
+  return `${slug(scope.tenantId)}__${slug(scope.userId)}__${slug(scope.companyId)}`;
+}
+
+function resolveContentRoot(): string {
+  if (process.env.CONTENT_COLLECTIONS_ROOT) {
+    return process.env.CONTENT_COLLECTIONS_ROOT;
   }
 
-  async ensureSchema(): Promise<void> {
-    await this.pool.query(`
-      CREATE TABLE IF NOT EXISTS company_profiles (
-        tenant_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        company_id TEXT NOT NULL DEFAULT 'default',
-        profile JSONB NOT NULL,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        PRIMARY KEY (tenant_id, user_id, company_id)
-      )
-    `);
-  }
+  // Eve dev/eval runs with cwd = hormozi-advisor; repo content lives one level up.
+  return join(process.cwd(), "..", "content");
+}
 
+function collectionDir(): string {
+  return join(resolveContentRoot(), COLLECTION_NAME);
+}
+
+function itemsDir(): string {
+  return join(collectionDir(), "items");
+}
+
+function collectionIndexPath(): string {
+  return join(collectionDir(), "collection.json");
+}
+
+function profileJsonPath(key: string): string {
+  return join(itemsDir(), `${key}.json`);
+}
+
+function profileMarkdownPath(key: string): string {
+  return join(itemsDir(), `${key}.md`);
+}
+
+async function ensureCollectionLayout(): Promise<void> {
+  await mkdir(itemsDir(), { recursive: true });
+  try {
+    await readFile(collectionIndexPath(), "utf8");
+  } catch {
+    const seed: CollectionIndex = {
+      version: 1,
+      collection: COLLECTION_NAME,
+      description: "Persisted company profiles keyed by tenant, user, and company id.",
+      updated_at: new Date().toISOString(),
+      items: [],
+    };
+    await writeFile(collectionIndexPath(), `${JSON.stringify(seed, null, 2)}\\n`, "utf8");
+  }
+}
+
+async function readIndex(): Promise<CollectionIndex> {
+  await ensureCollectionLayout();
+  try {
+    const raw = await readFile(collectionIndexPath(), "utf8");
+    if (!raw.trim()) {
+      throw new Error("empty collection index");
+    }
+    return JSON.parse(raw) as CollectionIndex;
+  } catch {
+    const seed: CollectionIndex = {
+      version: 1,
+      collection: COLLECTION_NAME,
+      description: "Persisted company profiles keyed by tenant, user, and company id.",
+      updated_at: new Date().toISOString(),
+      items: [],
+    };
+    await writeIndex(seed);
+    return seed;
+  }
+}
+
+async function writeIndex(index: CollectionIndex): Promise<void> {
+  index.updated_at = new Date().toISOString();
+  await writeFile(collectionIndexPath(), `${JSON.stringify(index, null, 2)}\\n`, "utf8");
+}
+
+class FileCompanyProfileCollection implements CompanyProfileCollection {
   async get(scope: CompanyScope): Promise<CompanyProfile | null> {
-    const result = await this.pool.query<{ profile: CompanyProfile }>(
-      `SELECT profile
-       FROM company_profiles
-       WHERE tenant_id = $1 AND user_id = $2 AND company_id = $3`,
-      [scope.tenantId, scope.userId, scope.companyId],
-    );
-    return result.rows[0]?.profile ?? null;
+    const key = scopeKey(scope);
+    try {
+      const raw = await readFile(profileJsonPath(key), "utf8");
+      return JSON.parse(raw) as CompanyProfile;
+    } catch {
+      return null;
+    }
   }
 
   async put(scope: CompanyScope, profile: CompanyProfile): Promise<CompanyProfile> {
-    await this.pool.query(
-      `INSERT INTO company_profiles (tenant_id, user_id, company_id, profile, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5::timestamptz)
-       ON CONFLICT (tenant_id, user_id, company_id)
-       DO UPDATE SET profile = EXCLUDED.profile, updated_at = EXCLUDED.updated_at`,
-      [
-        scope.tenantId,
-        scope.userId,
-        scope.companyId,
-        JSON.stringify(profile),
-        profile.updatedAt ?? new Date().toISOString(),
-      ],
-    );
+    await ensureCollectionLayout();
+    const key = scopeKey(scope);
+    const updatedAt = profile.updatedAt ?? new Date().toISOString();
+    const jsonRel = `items/${key}.json`;
+    const mdRel = `items/${key}.md`;
+
+    await writeFile(profileJsonPath(key), `${JSON.stringify(profile, null, 2)}\\n`, "utf8");
+    await writeFile(profileMarkdownPath(key), formatProfileMarkdown(profile), "utf8");
+
+    const index = await readIndex();
+    const item: CollectionItem = {
+      key,
+      tenant_id: scope.tenantId,
+      user_id: scope.userId,
+      company_id: scope.companyId,
+      file: jsonRel,
+      markdown: mdRel,
+      updated_at: updatedAt,
+    };
+    const existing = index.items.findIndex((entry) => entry.key === key);
+    if (existing >= 0) {
+      index.items[existing] = item;
+    } else {
+      index.items.push(item);
+    }
+    await writeIndex(index);
     return profile;
   }
 }
 
-let store: CompanyStore | null | undefined;
+let collection: CompanyProfileCollection | undefined;
 
-export function getCompanyStore(): CompanyStore | null {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    return null;
+export function getCompanyProfileCollection(): CompanyProfileCollection {
+  if (!collection) {
+    collection = new FileCompanyProfileCollection();
   }
-
-  if (store === undefined) {
-    store = new PostgresCompanyStore(connectionString);
-  }
-
-  return store;
-}
-
-export async function ensureCompanyStoreReady(): Promise<void> {
-  const companyStore = getCompanyStore();
-  if (companyStore) {
-    await companyStore.ensureSchema();
-  }
+  return collection;
 }
 """
 
     company_profile_service_ts = """import type { ToolContext } from "eve/tools";
 
-import { getCompanyStore } from "./company-store.js";
+import { getCompanyProfileCollection } from "./company-profile-collection.js";
 import {
   companyProfile,
   formatProfileMarkdown,
@@ -1275,12 +1399,7 @@ export function mergeCompanyProfile(
 }
 
 export async function hydrateCompanyProfile(scope: CompanyScope): Promise<void> {
-  const store = getCompanyStore();
-  if (!store) {
-    return;
-  }
-
-  const stored = await store.get(scope);
+  const stored = await getCompanyProfileCollection().get(scope);
   if (stored) {
     companyProfile.update(() => stored);
   }
@@ -1290,12 +1409,7 @@ export async function persistCompanyProfile(
   scope: CompanyScope,
   profile: CompanyProfile,
 ): Promise<void> {
-  const store = getCompanyStore();
-  if (!store) {
-    return;
-  }
-
-  await store.put(scope, profile);
+  await getCompanyProfileCollection().put(scope, profile);
 }
 
 export async function syncProfileToSandbox(
@@ -1326,54 +1440,16 @@ export async function persistAndSyncCompanyProfile(
     load_profile_hook_ts = """import { defineHook } from "eve/hooks";
 
 import { hydrateCompanyProfile } from "../lib/company-profile-service.js";
-import { ensureCompanyStoreReady } from "../lib/company-store.js";
 import { resolveCompanyScope } from "../lib/tenant.js";
 
 export default defineHook({
   events: {
     async "session.started"(_event, ctx) {
-      await ensureCompanyStoreReady();
       const scope = resolveCompanyScope(ctx);
       await hydrateCompanyProfile(scope);
     },
   },
 });
-"""
-
-    db_migration_sql = """CREATE TABLE IF NOT EXISTS company_profiles (
-  tenant_id TEXT NOT NULL,
-  user_id TEXT NOT NULL,
-  company_id TEXT NOT NULL DEFAULT 'default',
-  profile JSONB NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (tenant_id, user_id, company_id)
-);
-"""
-
-    db_migrate_ts = """import pg from "pg";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  console.error("DATABASE_URL is required to run db:migrate");
-  process.exit(1);
-}
-
-const migrationPath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../db/migrations/001_company_profiles.sql",
-);
-const sql = readFileSync(migrationPath, "utf8");
-
-const pool = new pg.Pool({ connectionString });
-try {
-  await pool.query(sql);
-  console.log("Applied company profile migration.");
-} finally {
-  await pool.end();
-}
 """
 
     profile_seed = """# Company Profile
@@ -1413,12 +1489,12 @@ metadata:
 
 # Shared Company Profile
 
-One canonical profile drives the whole company. When `DATABASE_URL` is set, the profile persists in Postgres across sessions for the authenticated tenant/user.
+One canonical profile drives the whole company. Profiles persist in the `content/company-profiles` content collection (JSON + markdown per tenant/user) and hydrate into session state on startup.
 
 ## Tools (CEO only)
 
-- `get_company_profile` — read current profile (hydrates from Postgres when configured)
-- `update_company_profile` — merge partial updates and persist
+- `get_company_profile` — read current profile (hydrates from the content collection)
+- `update_company_profile` — merge partial updates and persist to the collection
 
 The synced markdown mirror lives at `/workspace/company/profile.md` in the sandbox.
 
@@ -1473,13 +1549,11 @@ See `references/profile-schema.md` for the full schema.
 """
 
     hooks_dir = output_dir / "agent" / "hooks"
-    db_dir = output_dir / "db" / "migrations"
-    scripts_dir = output_dir / "scripts"
 
     for path, content, label in [
         (lib_dir / "company-state.ts", company_state_ts, "company-state.ts"),
         (lib_dir / "tenant.ts", tenant_ts, "tenant.ts"),
-        (lib_dir / "company-store.ts", company_store_ts, "company-store.ts"),
+        (lib_dir / "company-profile-collection.ts", company_profile_collection_ts, "company-profile-collection.ts"),
         (lib_dir / "company-profile-service.ts", company_profile_service_ts, "company-profile-service.ts"),
         (lib_dir / "model.ts", model_ts, "model.ts"),
         (lib_dir / "eval-model.ts", eval_model_ts, "eval-model.ts"),
@@ -1487,8 +1561,6 @@ See `references/profile-schema.md` for the full schema.
         (tools_dir / "get_company_profile.ts", get_profile_ts, "get_company_profile tool"),
         (tools_dir / "update_company_profile.ts", update_profile_ts, "update_company_profile tool"),
         (sandbox_dir / "profile.md", profile_seed, "sandbox company profile seed"),
-        (db_dir / "001_company_profiles.sql", db_migration_sql, "db migration"),
-        (scripts_dir / "db-migrate.ts", db_migrate_ts, "db migrate script"),
         (
             output_dir / "agent" / "skills" / "company-profile" / "SKILL.md",
             company_profile_skill,
@@ -1636,17 +1708,13 @@ export default defineEval({
   },
 });
 """,
-        "integration/profile-persists-postgres.eval.ts": """import { defineEval } from "eve/evals";
+        "integration/profile-persists-collection.eval.ts": """import { defineEval } from "eve/evals";
 import { includes } from "eve/evals/expect";
 
 export default defineEval({
-  description: "Company profile survives a new session when DATABASE_URL is configured.",
-  tags: ["integration", "persistence", "postgres"],
+  description: "Company profile survives a new session via the content collection.",
+  tags: ["integration", "persistence", "content-collection"],
   async test(t) {
-    if (!process.env.DATABASE_URL) {
-      t.skip("DATABASE_URL is required for postgres persistence eval");
-    }
-
     await t.send("EVE_EVAL: multi-turn persist profile for Eval Fitness Co.");
     t.calledTool("update_company_profile", { count: 1 });
 
@@ -1702,8 +1770,8 @@ HORMOZI_SPECIALIST_MODEL=
 # Vercel AI Gateway — required for non-eval runs
 AI_GATEWAY_API_KEY=
 
-# Postgres — persists company profile across sessions (optional locally)
-DATABASE_URL=postgres://hormozi:hormozi@localhost:5432/hormozi
+# Root directory for writable content collections (default: ../content from hormozi-advisor)
+CONTENT_COLLECTIONS_ROOT=
 
 # Set to 1 for deterministic eve eval fixtures (npm run eval)
 EVE_EVAL=0
@@ -1728,20 +1796,6 @@ on:
 jobs:
   eval:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: hormozi
-          POSTGRES_PASSWORD: hormozi
-          POSTGRES_DB: hormozi
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     defaults:
       run:
         working-directory: hormozi-advisor
@@ -1753,13 +1807,9 @@ jobs:
           cache: npm
           cache-dependency-path: hormozi-advisor/package-lock.json
       - run: npm ci
-      - run: npm run db:migrate
-        env:
-          DATABASE_URL: postgres://hormozi:hormozi@localhost:5432/hormozi
       - run: npm run typecheck
       - run: npm run eval:strict
         env:
-          DATABASE_URL: postgres://hormozi:hormozi@localhost:5432/hormozi
           EVE_EVAL: "1"
 """
     write_text(
@@ -1932,17 +1982,14 @@ When the user is unsure where to start, suggest:
                 "eval": "EVE_EVAL=1 eve eval",
                 "eval:strict": "EVE_EVAL=1 eve eval --strict",
                 "typecheck": "tsc --noEmit",
-                "db:migrate": "node --experimental-strip-types scripts/db-migrate.ts",
             },
             "dependencies": {
                 "ai": "^7.0.38",
                 "eve": "^0.30.8",
-                "pg": "^8.16.3",
                 "zod": "^4.0.0",
             },
             "devDependencies": {
                 "@types/node": "^24.0.0",
-                "@types/pg": "^8.15.5",
                 "typescript": "^5.9.0",
             },
         },
@@ -1963,8 +2010,8 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 - **Workflow tool** — cross-department orchestration
 - **Schedules** — weekly operating review, monthly unit economics
 
-- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted to Postgres when `DATABASE_URL` is set
-- **Evals** — smoke, routing, integration, and postgres persistence checks with `npm run eval`
+- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted in `content/company-profiles`
+- **Evals** — smoke, routing, integration, and content-collection persistence checks with `npm run eval`
 - **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
 - **Onboarding** — `workflow-company-setup` skill for empty profiles
 - **Chunked references** — large books split under `references/sections/`
@@ -1987,15 +2034,9 @@ cp .env.example .env
 
 Playbook references are symlinked to markdown files under `sources/`. Metadata is indexed in `sources/collection.json`.
 
-## Postgres persistence
+## Content collections
 
-When `DATABASE_URL` is set, company profiles persist across sessions per authenticated tenant/user:
-
-```bash
-npm run db:migrate
-```
-
-Without `DATABASE_URL`, profile state remains session-only (fine for local smoke evals).
+Company profiles persist in `content/company-profiles/` as JSON + markdown files, indexed by `collection.json`. Override the root with `CONTENT_COLLECTIONS_ROOT` if needed.
 
 ## Run locally
 
@@ -2051,8 +2092,11 @@ def write_manifest(
             ],
             "workflow_skills": [slug for slug in COMPANY_SKILL_SLUGS if slug.startswith("workflow-")],
             "company_state_tools": ["get_company_profile", "update_company_profile"],
-            "persistence": "postgres",
-            "content_collection": "sources/collection.json",
+            "persistence": "content-collection",
+            "content_collections": {
+                "playbooks": "sources/collection.json",
+                "company_profiles": "content/company-profiles/collection.json",
+            },
             "evals": list(EVAL_IDS),
             "schedules": ["weekly-operating-review", "monthly-unit-economics"],
             "chunk_threshold_default": DEFAULT_CHUNK_THRESHOLD,
@@ -2161,6 +2205,8 @@ def build_agents(
 
     write_root_agent(output_dir, playbooks, overwrite=overwrite, dry_run=dry_run)
     write_company_state(output_dir, overwrite=overwrite, dry_run=dry_run)
+    cleanup_postgres_artifacts(output_dir, dry_run=dry_run)
+    write_company_profiles_collection(input_dir, dry_run=dry_run)
     write_eve_channel(output_dir, overwrite=overwrite, dry_run=dry_run)
     write_env_example(output_dir, overwrite=overwrite, dry_run=dry_run)
     write_github_ci(repo_root, overwrite=overwrite, dry_run=dry_run)

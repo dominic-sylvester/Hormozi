@@ -6,12 +6,12 @@ metadata:
 
 # Shared Company Profile
 
-One canonical profile drives the whole company. When `DATABASE_URL` is set, the profile persists in Postgres across sessions for the authenticated tenant/user.
+One canonical profile drives the whole company. Profiles persist in the `content/company-profiles` content collection (JSON + markdown per tenant/user) and hydrate into session state on startup.
 
 ## Tools (CEO only)
 
-- `get_company_profile` — read current profile (hydrates from Postgres when configured)
-- `update_company_profile` — merge partial updates and persist
+- `get_company_profile` — read current profile (hydrates from the content collection)
+- `update_company_profile` — merge partial updates and persist to the collection
 
 The synced markdown mirror lives at `/workspace/company/profile.md` in the sandbox.
 
