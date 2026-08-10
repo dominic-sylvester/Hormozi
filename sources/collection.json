@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "generated_at": "2026-08-10T02:25:45.968248+00:00",
+  "playbooks": [
+    {
+      "slug": "offers",
+      "title": "Offers",
+      "series": "book",
+      "file": "$100 m offers_ how to make offers so good people feel stupid -- Alex Hormozy -- PT, 2021 -- Acquisition_com Publishing -- 9781737475705 -- da9eb4951114175a5e429e89b9488c20 -- Anna\u2019s Archive.md",
+      "description": "Use when the user asks about Alex Hormozi's Offers material from the $100M book on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "leads",
+      "title": "Leads",
+      "series": "book",
+      "file": "$100M Leads_ How to Get Strangers To Want To Buy Your Stuff -- Alex Hormozi -- $100M Leads, 2_, 2023 -- 1268dcce3c9050728de5cb669996bd84 -- Anna\u2019s Archive.md",
+      "description": "Use when the user asks about Alex Hormozi's Leads material from the $100M book on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "money-models",
+      "title": "Money Models",
+      "series": "book",
+      "file": "$100M Money Models_ How To Make Money -- Alex Hormozi -- 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Money Models material from the $100M book on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "branding",
+      "title": "Branding",
+      "series": "playbook",
+      "file": "$100M Playbook_ Branding -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Branding material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "closing",
+      "title": "Closing",
+      "series": "playbook",
+      "file": "$100M Playbook_ Closing -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Closing material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "fast-cash",
+      "title": "Fast Cash",
+      "series": "playbook",
+      "file": "$100M Playbook_ Fast Cash -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Fast Cash material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "goated-ads",
+      "title": "GOATed Ads",
+      "series": "playbook",
+      "file": "$100M Playbook_ GOATed Ads -- Alex Hormozi -- 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's GOATed Ads material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "hooks",
+      "title": "Hooks",
+      "series": "playbook",
+      "file": "$100M Playbook_ Hooks -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Hooks material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "lead-nurture",
+      "title": "Lead Nurture",
+      "series": "playbook",
+      "file": "$100M Playbook_ Lead Nurture -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Lead Nurture material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "lifetime-value",
+      "title": "Lifetime Value",
+      "series": "playbook",
+      "file": "$100M Playbook_ Lifetime Value -- Alex Hormozi -- 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Lifetime Value material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "marketing-machine",
+      "title": "Marketing Machine",
+      "series": "playbook",
+      "file": "$100M Playbook_ Marketing Machine -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Marketing Machine material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "price-raise",
+      "title": "Price Raise",
+      "series": "playbook",
+      "file": "$100M Playbook_ Price Raise -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Price Raise material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "pricing",
+      "title": "Pricing",
+      "series": "playbook",
+      "file": "$100M Playbook_ Pricing -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Pricing material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "proof-checklist",
+      "title": "Proof Checklist",
+      "series": "playbook",
+      "file": "$100M Playbook_ Proof Checklist -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Proof Checklist material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    },
+    {
+      "slug": "retention",
+      "title": "Retention",
+      "series": "playbook",
+      "file": "$100M Playbook_ Retention -- Alex Hormozi -- $100M, 2025.md",
+      "description": "Use when the user asks about Alex Hormozi's Retention material from the $100M playbook on offers, marketing, sales, pricing, retention, or growth."
+    }
+  ]
+}

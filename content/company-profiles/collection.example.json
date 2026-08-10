@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "collection": "company-profiles",
+  "description": "Persisted company profiles keyed by tenant, user, and company id.",
+  "updated_at": "2026-08-10T00:00:00.000Z",
+  "items": [
+    {
+      "key": "tenant__user__default",
+      "tenant_id": "tenant",
+      "user_id": "user",
+      "company_id": "default",
+      "file": "items/tenant__user__default.json",
+      "markdown": "items/tenant__user__default.md",
+      "updated_at": "2026-08-10T00:00:00.000Z"
+    }
+  ]
+}
