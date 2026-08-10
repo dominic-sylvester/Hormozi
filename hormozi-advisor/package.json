@@ -7,7 +7,10 @@
   },
   "scripts": {
     "dev": "eve dev",
+    "dev:web": "npm run dev --prefix web",
+    "dev:all": "npm run dev & npm run dev:web",
     "build": "eve build",
+    "build:web": "npm run build --prefix web",
     "start": "eve start",
     "info": "eve info --json",
     "eval": "EVE_EVAL=1 eve eval",

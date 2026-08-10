@@ -40,6 +40,8 @@ Company profiles persist in `content/company-profiles/` as JSON + markdown files
 
 ## Run locally
 
+### Agent (Eve dev server)
+
 ```bash
 cd hormozi-advisor
 npm install
@@ -47,7 +49,21 @@ npm run dev
 npx eve info --json
 ```
 
-Requires Node.js 24+. Set `HORMOZI_AGENT_MODEL`, `HORMOZI_DEPARTMENT_MODEL`, and `HORMOZI_SPECIALIST_MODEL` as needed.
+The Eve HTTP channel listens on port **2000** by default (`/eve/v1/*`).
+
+### Web UI (Vite + React)
+
+In a second terminal:
+
+```bash
+cd hormozi-advisor
+npm install --prefix web
+npm run dev:web
+```
+
+Open http://localhost:5173 — the Vite dev server proxies `/eve` to the Eve agent.
+
+Requires Node.js 24+. Set `HORMOZI_AGENT_MODEL`, `HORMOZI_DEPARTMENT_MODEL`, and `HORMOZI_SPECIALIST_MODEL` as needed (agent `.env`).
 
 ## Evals
 

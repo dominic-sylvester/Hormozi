@@ -1976,7 +1976,9 @@ When the user is unsure where to start, suggest:
             "engines": {"node": ">=24"},
             "scripts": {
                 "dev": "eve dev",
+                "dev:web": "npm run dev --prefix web",
                 "build": "eve build",
+                "build:web": "npm run build --prefix web",
                 "start": "eve start",
                 "info": "eve info --json",
                 "eval": "EVE_EVAL=1 eve eval",
@@ -2012,7 +2014,7 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 
 - **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted in `content/company-profiles`
 - **Evals** — smoke, routing, integration, and content-collection persistence checks with `npm run eval`
-- **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
+- **HTTP channel** — `agent/channels/eve.ts` for API clients and the Vite web UI
 - **Onboarding** — `workflow-company-setup` skill for empty profiles
 - **Chunked references** — large books split under `references/sections/`
 
