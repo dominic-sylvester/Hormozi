@@ -1,5 +1,7 @@
 import type { SessionContext } from "eve/context";
 
+import { scopeCompanyId } from "./company-state.js";
+
 export interface CompanyScope {
   tenantId: string;
   userId: string;
@@ -17,9 +19,12 @@ export function resolveCompanyScope(ctx: SessionContext): CompanyScope {
       ? caller.principalId
       : tenantId;
 
+  const attributeCompanyId =
+    typeof caller?.attributes?.companyId === "string" ? caller.attributes.companyId : null;
+
   return {
     tenantId,
     userId,
-    companyId: "default",
+    companyId: attributeCompanyId ?? scopeCompanyId.get() ?? "default",
   };
 }

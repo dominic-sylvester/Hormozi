@@ -4,31 +4,32 @@ description: Use when onboarding a new company, the profile is empty, or the use
 
 # Workflow: Company Setup
 
-Run at the start of a new session when `companyName` or `offer` is empty.
+Run when `companyName` is empty or the offers catalog has no active entries.
 
 ## Path A — Website URL provided
 
-When the user shares a company website (or the UI sends a URL):
+1. Call `research_company_from_url`
+2. Present inferred **offers catalog** and **avatars catalog** as draft tables
+3. Ask the user to confirm, rename, add, or remove entries
+4. Persist with:
+   - `update_company_profile` for company identity + research notes
+   - `upsert_offer` for each confirmed offer
+   - `upsert_avatar` for each confirmed avatar
+5. Call `set_active_context` with the primary offer + avatar the user chooses
+6. Ask only for company-level gaps: weekly metrics and top 3 goals
 
-1. Call `research_company_from_url` with the URL
-2. Present the **draft profile** as a bullet summary — label every field as inferred until confirmed
-3. Ask the user to confirm or correct offer, ICP, promise, price point, and channel
-4. Ask only for gaps the website cannot answer: weekly metrics and top 3 goals
-5. Call `update_company_profile` with **confirmed** fields plus `websiteUrl`, `researchNotes`, and `researchSources`
-6. Do not persist unverified research output without user confirmation
+## Path B — Manual interview
 
-## Path B — No URL (manual interview)
+Ask in 2–3 batches:
 
-Ask in 2–3 small batches, not one wall of questions:
+1. Company name, website, brand promise
+2. First offer (name, promise, price, channel) and primary ICP
+3. Additional offers/avatars if mentioned; company metrics and goals
 
-1. Company name, core offer, and promise
-2. ICP / avatar and primary acquisition channel
-3. Price point, current weekly metrics, and top 3 goals
-
-After each batch, call `update_company_profile` with confirmed fields.
+After each batch, upsert offers/avatars and update company fields.
 
 ## Finish (both paths)
 
-1. Call `get_company_profile` and show a concise summary
-2. Recommend the first workflow: launch offer, lead gen audit, or weekly review
-3. Do not delegate to departments until offer and avatar are set
+1. Call `get_company_profile` and summarize company + active context
+2. Recommend first workflow (`workflow-launch-offer`, lead gen audit, or weekly review)
+3. Do not delegate until active offer and avatar are set

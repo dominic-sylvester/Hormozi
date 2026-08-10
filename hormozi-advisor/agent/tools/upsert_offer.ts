@@ -2,10 +2,13 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 
 import {
-  mergeCompanyProfile,
   persistAndSyncCompanyProfile,
+  upsertOfferInProfile,
 } from "../lib/company-profile-service.js";
-import { companyProfile } from "../lib/company-state.js";
+import {
+  companyProfile,
+  slugifyId,
+} from "../lib/company-state.js";
 import { resolveCompanyScope } from "../lib/tenant.js";
 
 const metricsSchema = z
@@ -19,34 +22,29 @@ const metricsSchema = z
   })
   .strict();
 
-const researchSourceSchema = z
+const upsertOfferSchema = z
   .object({
-    url: z.string(),
-    title: z.string(),
-  })
-  .strict();
-
-const updateSchema = z
-  .object({
-    companyName: z.string().optional(),
-    websiteUrl: z.string().optional(),
-    brandPromise: z.string().optional(),
-    researchNotes: z.string().optional(),
-    researchSources: z.array(researchSourceSchema).optional(),
+    id: z.string().optional(),
+    name: z.string().min(1),
+    description: z.string().optional(),
+    promise: z.string().optional(),
+    pricePoint: z.string().optional(),
+    channel: z.string().optional(),
+    status: z.enum(["draft", "active", "archived"]).optional(),
+    targetAvatarIds: z.array(z.string()).optional(),
     metrics: metricsSchema.optional(),
-    goals: z.array(z.string()).optional(),
   })
   .strict();
 
 export default defineTool({
-  description:
-    "Update company-level profile fields (identity, research notes, company metrics, goals). Use upsert_offer and upsert_avatar for catalog entries.",
-  inputSchema: updateSchema,
+  description: "Create or update one offer in the company offers catalog.",
+  inputSchema: upsertOfferSchema,
   async execute(input, ctx) {
     const scope = resolveCompanyScope(ctx);
-    companyProfile.update((current) => mergeCompanyProfile(current, input));
+    companyProfile.update((current) => upsertOfferInProfile(current, input));
     const profile = companyProfile.get();
     await persistAndSyncCompanyProfile(scope, profile, ctx);
-    return profile;
+    const id = slugifyId(input.id ?? input.name);
+    return profile.offers.find((offer) => offer.id === id) ?? profile.offers.at(-1);
   },
 });

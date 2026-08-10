@@ -2,6 +2,7 @@ import { useEveAgent } from "eve/react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { MessageBubble } from "./MessageBubble";
+import { CompanyContextBar } from "./CompanyContextBar";
 
 const STARTER_PROMPTS = [
   "Set up my company profile",
@@ -72,6 +73,8 @@ export function AdvisorChat() {
           </button>
         </div>
       </header>
+
+      <CompanyContextBar disabled={isBusy} onSendMessage={sendMessage} />
 
       <main className="chat-panel">
         <div ref={scrollRef} className="message-list">

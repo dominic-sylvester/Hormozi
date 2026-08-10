@@ -1,7 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { formatProfileMarkdown, normalizeCompanyProfile, type CompanyProfile } from "./company-state.js";
+import {
+  formatProfileMarkdown,
+  normalizeCompanyProfile,
+  type CompanyListItem,
+  type CompanyProfile,
+} from "./company-state.js";
 import type { CompanyScope } from "./tenant.js";
 
 const COLLECTION_NAME = "company-profiles";
@@ -27,6 +32,7 @@ type CollectionItem = {
 export interface CompanyProfileCollection {
   get(scope: CompanyScope): Promise<CompanyProfile | null>;
   put(scope: CompanyScope, profile: CompanyProfile): Promise<CompanyProfile>;
+  list(scope: Pick<CompanyScope, "tenantId" | "userId">): Promise<CompanyListItem[]>;
 }
 
 function slug(value: string): string {
@@ -42,7 +48,6 @@ function resolveContentRoot(): string {
     return process.env.CONTENT_COLLECTIONS_ROOT;
   }
 
-  // Eve dev/eval runs with cwd = hormozi-advisor; repo content lives one level up.
   return join(process.cwd(), "..", "content");
 }
 
@@ -121,13 +126,14 @@ class FileCompanyProfileCollection implements CompanyProfileCollection {
 
   async put(scope: CompanyScope, profile: CompanyProfile): Promise<CompanyProfile> {
     await ensureCollectionLayout();
+    const normalized = normalizeCompanyProfile(profile);
     const key = scopeKey(scope);
-    const updatedAt = profile.updatedAt ?? new Date().toISOString();
+    const updatedAt = normalized.updatedAt ?? new Date().toISOString();
     const jsonRel = `items/${key}.json`;
     const mdRel = `items/${key}.md`;
 
-    await writeFile(profileJsonPath(key), `${JSON.stringify(profile, null, 2)}\n`, "utf8");
-    await writeFile(profileMarkdownPath(key), formatProfileMarkdown(profile), "utf8");
+    await writeFile(profileJsonPath(key), `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
+    await writeFile(profileMarkdownPath(key), formatProfileMarkdown(normalized), "utf8");
 
     const index = await readIndex();
     const item: CollectionItem = {
@@ -146,7 +152,34 @@ class FileCompanyProfileCollection implements CompanyProfileCollection {
       index.items.push(item);
     }
     await writeIndex(index);
-    return profile;
+    return normalized;
+  }
+
+  async list(scope: Pick<CompanyScope, "tenantId" | "userId">): Promise<CompanyListItem[]> {
+    const index = await readIndex();
+    const matches = index.items.filter(
+      (item) => item.tenant_id === scope.tenantId && item.user_id === scope.userId,
+    );
+
+    const results: CompanyListItem[] = [];
+    for (const item of matches) {
+      const profile = await this.get({
+        tenantId: scope.tenantId,
+        userId: scope.userId,
+        companyId: item.company_id,
+      });
+      if (!profile) continue;
+      results.push({
+        companyId: item.company_id,
+        companyName: profile.companyName || item.company_id,
+        websiteUrl: profile.websiteUrl,
+        offerCount: profile.offers.filter((offer) => offer.status !== "archived").length,
+        avatarCount: profile.avatars.filter((avatar) => avatar.status !== "archived").length,
+        updatedAt: profile.updatedAt,
+      });
+    }
+
+    return results.sort((a, b) => a.companyId.localeCompare(b.companyId));
   }
 }
 

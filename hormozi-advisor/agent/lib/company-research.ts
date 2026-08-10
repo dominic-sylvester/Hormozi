@@ -1,24 +1,36 @@
-import type { CompanyProfile } from "./company-state.js";
+import {
+  emptyMetrics,
+  nowIso,
+  slugifyId,
+  type Avatar,
+  type Offer,
+} from "./company-state.js";
 
 export type ResearchSource = {
   url: string;
   title: string;
 };
 
+export type SuggestedContextLink = {
+  offerId: string;
+  avatarId: string;
+};
+
 export type CompanyResearchDraft = {
   websiteUrl: string;
-  draftProfile: Partial<
+  draftCompany: {
+    companyName: string;
+    websiteUrl: string;
+    brandPromise: string;
+  };
+  inferredOffers: Array<
     Pick<
-      CompanyProfile,
-      | "companyName"
-      | "offer"
-      | "avatar"
-      | "promise"
-      | "pricePoint"
-      | "channel"
-      | "websiteUrl"
+      Offer,
+      "id" | "name" | "description" | "promise" | "pricePoint" | "channel" | "targetAvatarIds"
     >
   >;
+  inferredAvatars: Array<Pick<Avatar, "id" | "name" | "description">>;
+  suggestedLinks: SuggestedContextLink[];
   researchNotes: string;
   researchSources: ResearchSource[];
   pagesFetched: number;
@@ -92,9 +104,9 @@ function firstMeaningfulSentence(text: string): string | null {
   return sentences[0] ?? null;
 }
 
-function findPricePoint(text: string): string | null {
-  const match = text.match(/\$\s?\d[\d,]*(?:\.\d{2})?/i);
-  return match?.[0]?.replace(/\s+/g, " ").trim() ?? null;
+function findPricePoints(text: string): string[] {
+  const matches = text.match(/\$\s?\d[\d,]*(?:\.\d{2})?/gi) ?? [];
+  return [...new Set(matches.map((value) => value.replace(/\s+/g, " ").trim()))].slice(0, 4);
 }
 
 function guessChannel(text: string): string | null {
@@ -109,50 +121,97 @@ function guessChannel(text: string): string | null {
   return null;
 }
 
-function guessAvatar(text: string, offer: string | null): string | null {
+function guessAvatars(text: string): Array<Pick<Avatar, "id" | "name" | "description">> {
   const patterns = [
-    /(?:for|helping|built for|designed for)\s+([^.!?]{8,120})/i,
-    /(?:ideal for|perfect for)\s+([^.!?]{8,120})/i,
-    /(?:who we serve|our clients are)\s+([^.!?]{8,120})/i,
+    /(?:for|helping|built for|designed for|ideal for|perfect for|who we serve|our clients are)\s+([^.!?]{8,120})/gi,
   ];
+  const avatars: Array<Pick<Avatar, "id" | "name" | "description">> = [];
   for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      return match[1].trim().replace(/\s+/g, " ");
+    for (const match of text.matchAll(pattern)) {
+      const description = match[1]?.trim().replace(/\s+/g, " ");
+      if (!description) continue;
+      const id = slugifyId(description.slice(0, 48));
+      if (avatars.some((avatar) => avatar.id === id)) continue;
+      avatars.push({
+        id,
+        name: description.slice(0, 60),
+        description,
+      });
+      if (avatars.length >= 3) return avatars;
     }
   }
-  if (offer && /coaching|transformation|fitness|weight loss/i.test(offer)) {
-    return "People seeking measurable transformation with guided accountability";
-  }
-  return null;
+  return avatars;
 }
 
-function guessOffer(title: string | null, description: string | null, text: string): string | null {
-  if (description && description.length >= 20) {
-    return description;
+function inferOffersFromText(
+  combinedText: string,
+  prices: string[],
+  channel: string | null,
+  primaryName: string,
+  primaryDescription: string,
+): CompanyResearchDraft["inferredOffers"] {
+  const offers: CompanyResearchDraft["inferredOffers"] = [];
+  const programMatches = [
+    ...combinedText.matchAll(
+      /((?:\d+\s*[- ]?(?:week|day|month)[\s\w-]{0,40})|(?:coaching|program|challenge|membership|retainer|consulting)[^.!?]{0,100})/gi,
+    ),
+  ];
+
+  for (const match of programMatches) {
+    const fragment = match[1]?.trim();
+    if (!fragment || fragment.length < 12) continue;
+    const id = slugifyId(fragment.slice(0, 48));
+    if (offers.some((offer) => offer.id === id)) continue;
+    offers.push({
+      id,
+      name: fragment.slice(0, 80),
+      description: fragment,
+      promise: primaryDescription,
+      pricePoint: prices[offers.length] ?? prices[0] ?? "",
+      channel: channel ?? "",
+      targetAvatarIds: [],
+    });
+    if (offers.length >= 3) break;
   }
-  const headingMatch = text.match(
-    /(?:^|\s)((?:we help|we offer|our program|our service|get)[^.!?]{10,160}[.!?])/i,
-  );
-  if (headingMatch?.[1]) {
-    return headingMatch[1].trim();
+
+  if (offers.length === 0) {
+    offers.push({
+      id: slugifyId(primaryName),
+      name: primaryName,
+      description: primaryDescription,
+      promise: primaryDescription,
+      pricePoint: prices[0] ?? "",
+      channel: channel ?? "",
+      targetAvatarIds: [],
+    });
   }
-  if (title) {
-    return title.replace(/\s*[|\-–].*$/, "").trim();
+
+  if (offers.length === 1 && prices.length > 1) {
+    offers.push({
+      id: `${offers[0].id}-premium`,
+      name: `${offers[0].name} (premium tier)`,
+      description: `Premium tier inferred from additional pricing signal ${prices[1]}`,
+      promise: offers[0].promise,
+      pricePoint: prices[1] ?? "",
+      channel: channel ?? "",
+      targetAvatarIds: [],
+    });
   }
-  return firstMeaningfulSentence(text);
+
+  return offers;
 }
 
-function buildResearchNotes(sources: ResearchSource[]): string {
+function buildResearchNotes(sources: ResearchSource[], offerCount: number, avatarCount: number): string {
   if (sources.length === 0) {
     return "No public pages could be fetched. Ask the user to confirm details manually.";
   }
   const lines = sources.map((source) => `- ${source.title}: ${source.url}`);
   return [
-    "Draft profile inferred from public website pages:",
+    "Draft catalogs inferred from public website pages:",
     ...lines,
     "",
-    "Treat all fields as unverified until the user confirms them.",
+    `Inferred ${offerCount} offer(s) and ${avatarCount} avatar(s).`,
+    "Treat all entries as unverified until the user confirms them.",
   ].join("\n");
 }
 
@@ -241,26 +300,38 @@ function extractDraftFromPages(
   const siteName = homepage?.siteName ?? pages.find((page) => page.siteName)?.siteName ?? null;
   const title = homepage?.title ?? null;
   const parsed = new URL(websiteUrl);
-
-  const offer = guessOffer(title, description, combinedText);
   const companyName = siteName ?? title?.split(/[|\-–]/)[0]?.trim() ?? domainLabel(parsed);
-  const promise =
+  const brandPromise =
     description ??
     firstMeaningfulSentence(combinedText) ??
-    (offer ? `Help customers achieve results through ${offer.toLowerCase()}` : null);
-  const pricePoint = findPricePoint(combinedText);
-  const avatar = guessAvatar(combinedText, offer);
+    `Help customers achieve measurable results with ${companyName}`;
+  const prices = findPricePoints(combinedText);
   const channel = guessChannel(combinedText);
+  const inferredAvatars = guessAvatars(combinedText);
+  const inferredOffers = inferOffersFromText(
+    combinedText,
+    prices,
+    channel,
+    companyName,
+    brandPromise,
+  );
 
-  const draftProfile = {
-    websiteUrl,
-    companyName: companyName || domainLabel(parsed),
-    offer: offer ?? "",
-    avatar: avatar ?? "",
-    promise: promise ?? "",
-    pricePoint: pricePoint ?? "",
-    channel: channel ?? "",
-  };
+  if (inferredAvatars.length === 0) {
+    inferredAvatars.push({
+      id: "primary-avatar",
+      name: "Primary ICP",
+      description: "Primary ideal client inferred from homepage messaging",
+    });
+  }
+
+  for (const offer of inferredOffers) {
+    offer.targetAvatarIds = [inferredAvatars[0]?.id ?? "primary-avatar"];
+  }
+
+  const suggestedLinks = inferredOffers.slice(0, 2).map((offer) => ({
+    offerId: offer.id,
+    avatarId: offer.targetAvatarIds[0] ?? inferredAvatars[0]?.id ?? "primary-avatar",
+  }));
 
   const researchSources = pages.map((page) => ({
     url: page.url,
@@ -269,8 +340,15 @@ function extractDraftFromPages(
 
   return {
     websiteUrl,
-    draftProfile,
-    researchNotes: buildResearchNotes(researchSources),
+    draftCompany: {
+      companyName: companyName || domainLabel(parsed),
+      websiteUrl,
+      brandPromise,
+    },
+    inferredOffers,
+    inferredAvatars,
+    suggestedLinks,
+    researchNotes: buildResearchNotes(researchSources, inferredOffers.length, inferredAvatars.length),
     researchSources,
     pagesFetched: pages.length,
   };
@@ -280,20 +358,52 @@ export function evalFixtureCompanyResearch(url: string): CompanyResearchDraft {
   const websiteUrl = normalizeWebsiteUrl(url);
   return {
     websiteUrl,
-    draftProfile: {
-      websiteUrl,
+    draftCompany: {
       companyName: "Eval Fitness Co",
-      offer: "12-week body transformation coaching program",
-      avatar: "Busy professionals who want to lose 20+ lbs without crash diets",
-      promise: "Lose 20+ lbs in 12 weeks with a proven nutrition and accountability system",
-      pricePoint: "$3,000",
-      channel: "Paid social",
+      websiteUrl,
+      brandPromise: "Lose 20+ lbs in 12 weeks with a proven nutrition and accountability system",
     },
+    inferredOffers: [
+      {
+        id: "coaching-12-week",
+        name: "12-Week Body Transformation Coaching",
+        description: "12-week body transformation coaching program",
+        promise: "Lose 20+ lbs in 12 weeks with accountability",
+        pricePoint: "$3,000",
+        channel: "Paid social",
+        targetAvatarIds: ["busy-professionals"],
+      },
+      {
+        id: "challenge-21-day",
+        name: "21-Day Kickstart Challenge",
+        description: "Low-ticket challenge offer inferred from pricing page",
+        promise: "Build momentum with a short challenge before coaching",
+        pricePoint: "$47",
+        channel: "Paid social",
+        targetAvatarIds: ["busy-professionals"],
+      },
+    ],
+    inferredAvatars: [
+      {
+        id: "busy-professionals",
+        name: "Busy professionals",
+        description: "Busy professionals who want to lose 20+ lbs without crash diets",
+      },
+      {
+        id: "new-moms",
+        name: "New moms",
+        description: "New moms rebuilding fitness routines with limited time",
+      },
+    ],
+    suggestedLinks: [
+      { offerId: "coaching-12-week", avatarId: "busy-professionals" },
+      { offerId: "challenge-21-day", avatarId: "busy-professionals" },
+    ],
     researchNotes: [
       "Eval fixture research for deterministic tests.",
       `- Homepage: ${websiteUrl}`,
       "",
-      "Treat all fields as unverified until the user confirms them.",
+      "Treat all entries as unverified until the user confirms them.",
     ].join("\n"),
     researchSources: [{ url: websiteUrl, title: "Eval Fitness Co" }],
     pagesFetched: 1,
@@ -329,12 +439,16 @@ export async function researchCompanyFromUrl(rawUrl: string): Promise<CompanyRes
     const parsed = new URL(websiteUrl);
     return {
       websiteUrl,
-      draftProfile: {
-        websiteUrl,
+      draftCompany: {
         companyName: domainLabel(parsed),
+        websiteUrl,
+        brandPromise: "",
       },
+      inferredOffers: [],
+      inferredAvatars: [],
+      suggestedLinks: [],
       researchNotes:
-        "Could not fetch readable HTML from the website. Ask the user to describe their offer, ICP, and pricing manually.",
+        "Could not fetch readable HTML from the website. Ask the user to describe offers and ICPs manually.",
       researchSources: [],
       pagesFetched: 0,
     };

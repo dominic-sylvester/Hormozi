@@ -147,6 +147,43 @@ code {
   color: #b8b8b8;
 }
 
+.context-bar {
+  width: min(960px, calc(100% - 2rem));
+  margin: 0 auto 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.context-bar-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.context-bar label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: #bdbdbd;
+}
+
+.context-bar select {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+}
+
+.context-bar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
 .onboarding-url-form {
   margin-top: 1.5rem;
   text-align: left;
@@ -332,6 +369,10 @@ code {
 }
 
 @media (min-width: 720px) {
+  .context-bar-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .onboarding-url-row {
     grid-template-columns: 1fr auto;
     align-items: center;

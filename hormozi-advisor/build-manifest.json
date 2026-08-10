@@ -62,7 +62,14 @@
     ],
     "company_state_tools": [
       "get_company_profile",
+      "get_company_catalog",
       "update_company_profile",
+      "upsert_offer",
+      "upsert_avatar",
+      "set_active_context",
+      "list_companies",
+      "create_company",
+      "select_company",
       "research_company_from_url"
     ],
     "persistence": "content-collection",
@@ -77,6 +84,8 @@
       "smoke/ceo-delegates-growth",
       "smoke/ceo-loads-company-setup-skill",
       "smoke/ceo-researches-company-from-url",
+      "smoke/set-active-context",
+      "smoke/create-company",
       "routing/launch-offer-loads-workflow-skill",
       "integration/company-setup-multi-turn",
       "integration/company-url-onboarding",
