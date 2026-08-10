@@ -1,1 +1,0 @@
-../../../../../../../$100M Playbook_ Proof Checklist -- Alex Hormozi -- $100M, 2025.md
