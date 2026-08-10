@@ -1,7 +1,0 @@
-{
-  "version": 1,
-  "collection": "company-profiles",
-  "description": "Persisted company profiles keyed by tenant, user, and company id.",
-  "updated_at": "2026-08-10T02:25:00.903967+00:00",
-  "items": []
-}
