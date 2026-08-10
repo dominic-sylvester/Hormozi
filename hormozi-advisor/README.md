@@ -1,16 +1,24 @@
-# Hormozi Advisor
+# Hormozi Company
 
-Eve agent generated from Alex Hormozi markdown playbooks and books.
+Eve agent company generated from Alex Hormozi markdown playbooks and books.
+
+## Company structure
+
+- **CEO (root agent)** — routes work, runs workflows, sets priorities
+- **5 departments** — growth, monetization, sales, success, brand
+- **15 playbook specialists** — nested under their department
+- **Workflow tool** — cross-department orchestration
+- **Schedules** — weekly operating review, monthly unit economics
 
 ## Regenerate
 
 From the repository root:
 
 ```bash
-python scripts/build_agents.py --input . --output ./hormozi-advisor --overwrite
+python3 scripts/build_agents.py --input . --output ./hormozi-advisor --overwrite
 ```
 
-References are symlinked to the source markdown files in the repository root.
+Playbook references are symlinked to markdown files in the repository root.
 
 ## Run locally
 
@@ -18,8 +26,7 @@ References are symlinked to the source markdown files in the repository root.
 cd hormozi-advisor
 npm install
 npm run dev
+npx eve info --json
 ```
 
-Set `HORMOZI_AGENT_MODEL` (and optionally `HORMOZI_SUBAGENT_MODEL`) before running in production.
-
-Requires Node.js 24 or newer (`nvm install 24`).
+Requires Node.js 24+. Set `HORMOZI_AGENT_MODEL`, `HORMOZI_DEPARTMENT_MODEL`, and `HORMOZI_SPECIALIST_MODEL` as needed.

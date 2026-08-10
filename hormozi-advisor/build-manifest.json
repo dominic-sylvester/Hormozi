@@ -1,5 +1,69 @@
 {
-  "generated_at": "2026-08-06T02:20:45.237486+00:00",
+  "generated_at": "2026-08-10T02:03:48.388366+00:00",
+  "company": {
+    "departments": [
+      {
+        "slug": "growth",
+        "title": "Growth",
+        "role": "Head of Growth",
+        "playbook_slugs": [
+          "leads",
+          "lead-nurture",
+          "hooks",
+          "goated-ads",
+          "marketing-machine"
+        ]
+      },
+      {
+        "slug": "monetization",
+        "title": "Monetization",
+        "role": "Head of Monetization",
+        "playbook_slugs": [
+          "offers",
+          "pricing",
+          "money-models",
+          "price-raise",
+          "fast-cash"
+        ]
+      },
+      {
+        "slug": "sales",
+        "title": "Sales",
+        "role": "Head of Sales",
+        "playbook_slugs": [
+          "closing",
+          "proof-checklist"
+        ]
+      },
+      {
+        "slug": "success",
+        "title": "Customer Success",
+        "role": "Head of Customer Success",
+        "playbook_slugs": [
+          "retention",
+          "lifetime-value"
+        ]
+      },
+      {
+        "slug": "brand",
+        "title": "Brand",
+        "role": "Head of Brand",
+        "playbook_slugs": [
+          "branding"
+        ]
+      }
+    ],
+    "workflow_skills": [
+      "workflow-launch-offer",
+      "workflow-lead-gen-audit",
+      "workflow-weekly-review",
+      "workflow-retention-recovery"
+    ],
+    "schedules": [
+      "weekly-operating-review",
+      "monthly-unit-economics"
+    ]
+  },
   "playbooks": [
     {
       "slug": "offers",
