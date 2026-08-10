@@ -2082,7 +2082,7 @@ npm run typecheck
         (agent_dir / "agent.ts", agent_content, "CEO agent.ts"),
         (agent_dir / "instructions.md", instructions_content, "CEO instructions"),
         (output_dir / "package.json", package_content, "package.json"),
-        (output_dir / ".gitignore", "node_modules/\n.eve/\n.env\n.env.*\n!.env.example\nweb/dist/\nweb/node_modules/\n", ".gitignore"),
+        (output_dir / ".gitignore", "node_modules/\n.eve/\n.env\n.env.*\n!.env.example\nweb/dist/\nweb/node_modules/\nweb/*.tsbuildinfo\n", ".gitignore"),
         (output_dir / ".npmrc", "legacy-peer-deps=true\n", ".npmrc"),
         (readme, readme_content, "README.md"),
     ]:

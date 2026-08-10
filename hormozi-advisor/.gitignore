@@ -5,3 +5,4 @@ node_modules/
 !.env.example
 web/dist/
 web/node_modules/
+web/*.tsbuildinfo
