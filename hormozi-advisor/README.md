@@ -10,8 +10,8 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 - **Workflow tool** — cross-department orchestration
 - **Schedules** — weekly operating review, monthly unit economics
 
-- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`
-- **Evals** — smoke and routing checks with `npm run eval`
+- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted to Postgres when `DATABASE_URL` is set
+- **Evals** — smoke, routing, integration, and postgres persistence checks with `npm run eval`
 - **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
 - **Onboarding** — `workflow-company-setup` skill for empty profiles
 - **Chunked references** — large books split under `references/sections/`
@@ -32,7 +32,17 @@ Copy environment variables:
 cp .env.example .env
 ```
 
-Playbook references are symlinked to markdown files in the repository root.
+Playbook references are symlinked to markdown files under `sources/`. Metadata is indexed in `sources/collection.json`.
+
+## Postgres persistence
+
+When `DATABASE_URL` is set, company profiles persist across sessions per authenticated tenant/user:
+
+```bash
+npm run db:migrate
+```
+
+Without `DATABASE_URL`, profile state remains session-only (fine for local smoke evals).
 
 ## Run locally
 

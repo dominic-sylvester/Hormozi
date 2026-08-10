@@ -36,9 +36,14 @@ EVAL_IDS = (
     "smoke/ceo-delegates-growth",
     "smoke/ceo-loads-company-setup-skill",
     "routing/launch-offer-loads-workflow-skill",
+    "integration/company-setup-multi-turn",
+    "integration/profile-delegate-workflow",
+    "integration/profile-persists-postgres",
 )
 
 DEFAULT_CHUNK_THRESHOLD = 2000
+SOURCES_DIR = "sources"
+COLLECTION_FILE = "collection.json"
 MAX_SECTION_LINES = 500
 
 DEPARTMENT_SLUGS = ("growth", "monetization", "sales", "success", "brand")
@@ -188,16 +193,75 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def resolve_sources_dir(input_dir: Path) -> Path:
+    sources = input_dir / SOURCES_DIR
+    if sources.is_dir():
+        return sources
+    return input_dir
+
+
 def find_markdown_sources(input_dir: Path, output_dir: Path) -> list[Path]:
     output_dir = output_dir.resolve()
+    sources_dir = resolve_sources_dir(input_dir)
+    collection_path = sources_dir / COLLECTION_FILE
+
+    if collection_path.is_file():
+        collection = json.loads(collection_path.read_text(encoding="utf-8"))
+        discovered: list[Path] = []
+        for entry in collection.get("playbooks", []):
+            file_name = entry.get("file") or entry.get("path")
+            if not file_name:
+                continue
+            path = (sources_dir / file_name).resolve()
+            if not path.is_file():
+                continue
+            if path.is_relative_to(output_dir):
+                continue
+            discovered.append(path)
+        if discovered:
+            return sorted(discovered, key=lambda item: item.name.lower())
+
     sources: list[Path] = []
-    for path in sorted(input_dir.glob("*.md")):
+    for path in sorted(sources_dir.glob("*.md")):
         if not path.is_file():
             continue
         if path.resolve().is_relative_to(output_dir):
             continue
         sources.append(path)
     return sources
+
+
+def write_content_collection(
+    input_dir: Path,
+    playbooks: list[Playbook],
+    *,
+    dry_run: bool,
+) -> None:
+    sources_dir = resolve_sources_dir(input_dir)
+    if sources_dir.name != SOURCES_DIR:
+        return
+
+    payload = {
+        "version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "playbooks": [
+            {
+                "slug": playbook.slug,
+                "title": playbook.title,
+                "series": playbook.series,
+                "file": playbook.path.name,
+                "description": playbook.description,
+            }
+            for playbook in playbooks
+        ],
+    }
+    write_text(
+        sources_dir / COLLECTION_FILE,
+        json.dumps(payload, indent=2) + "\n",
+        overwrite=True,
+        dry_run=dry_run,
+        label="content collection",
+    )
 
 
 def os_path_relpath(target: Path, start: Path) -> str:
@@ -903,10 +967,13 @@ export function resolveModel(role: ModelRole = "ceo") {
     eval_model_ts = """import { mockModel } from "eve/evals";
 
 export function createEvalModel() {
-  return mockModel(({ lastUserMessage, toolResults }) => {
-    if (toolResults.length > 0) {
+  return mockModel(({ lastUserMessage, toolResults, messages }) => {
+    const respondingToToolResults =
+      toolResults.length > 0 && messages.at(-1)?.role === "tool";
+
+    if (respondingToToolResults) {
       const toolNames = toolResults.map((result) =>
-        String((result as { toolName?: string }).toolName ?? ""),
+        String((result as { toolName?: string }).toolName ?? result.name ?? ""),
       );
       if (toolNames.includes("get_company_profile")) {
         return { text: "Here is the current shared company profile." };
@@ -962,6 +1029,39 @@ export function createEvalModel() {
       return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-company-setup" } }] };
     }
 
+    if (message.includes("multi-turn company setup")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-company-setup" } }] };
+    }
+
+    if (message.includes("multi-turn persist profile")) {
+      return {
+        toolCalls: [
+          {
+            name: "update_company_profile",
+            input: {
+              companyName: "Eval Fitness Co",
+              offer: "12-week transformation program",
+              avatar: "Busy professionals who want to lose 20+ lbs",
+            },
+          },
+        ],
+      };
+    }
+
+    if (message.includes("multi-turn verify profile")) {
+      return { toolCalls: [{ name: "get_company_profile", input: {} }] };
+    }
+
+    if (message.includes("multi-turn growth brief")) {
+      return {
+        toolCalls: [{ name: "growth", input: { message: lastUserMessage } }],
+      };
+    }
+
+    if (message.includes("multi-turn launch workflow")) {
+      return { toolCalls: [{ name: "load_skill", input: { skill: "workflow-launch-offer" } }] };
+    }
+
     return { text: "Eval fixture acknowledgment." };
   });
 }
@@ -970,12 +1070,16 @@ export function createEvalModel() {
     get_profile_ts = """import { defineTool } from "eve/tools";
 import { z } from "zod";
 
+import { hydrateCompanyProfile } from "../lib/company-profile-service.js";
 import { companyProfile } from "../lib/company-state.js";
+import { resolveCompanyScope } from "../lib/tenant.js";
 
 export default defineTool({
   description: "Read the shared company profile used across all departments.",
   inputSchema: z.object({}),
-  async execute() {
+  async execute(_input, ctx) {
+    const scope = resolveCompanyScope(ctx);
+    await hydrateCompanyProfile(scope);
     return companyProfile.get();
   },
 });
@@ -985,11 +1089,11 @@ export default defineTool({
 import { z } from "zod";
 
 import {
-  companyProfile,
-  formatProfileMarkdown,
-  type CompanyMetrics,
-  type CompanyProfile,
-} from "../lib/company-state.js";
+  mergeCompanyProfile,
+  persistAndSyncCompanyProfile,
+} from "../lib/company-profile-service.js";
+import { companyProfile } from "../lib/company-state.js";
+import { resolveCompanyScope } from "../lib/tenant.js";
 
 const metricsSchema = z
   .object({
@@ -1015,7 +1119,147 @@ const updateSchema = z
   })
   .strict();
 
-function mergeProfile(current: CompanyProfile, patch: z.infer<typeof updateSchema>): CompanyProfile {
+export default defineTool({
+  description:
+    "Update the shared company profile. Partial updates merge into session state, persist to Postgres when DATABASE_URL is set, and sync to /workspace/company/profile.md.",
+  inputSchema: updateSchema,
+  async execute(input, ctx) {
+    const scope = resolveCompanyScope(ctx);
+    companyProfile.update((current) => mergeCompanyProfile(current, input));
+    const profile = companyProfile.get();
+    await persistAndSyncCompanyProfile(scope, profile, ctx);
+    return profile;
+  },
+});
+"""
+
+    tenant_ts = """import type { SessionContext } from "eve/context";
+
+export interface CompanyScope {
+  tenantId: string;
+  userId: string;
+  companyId: string;
+}
+
+export function resolveCompanyScope(ctx: SessionContext): CompanyScope {
+  const caller = ctx.session.auth.current ?? ctx.session.auth.initiator;
+  const tenantId =
+    typeof caller?.attributes?.tenantId === "string"
+      ? caller.attributes.tenantId
+      : (caller?.principalId ?? "anonymous");
+  const userId =
+    caller?.principalType === "user" && caller.principalId
+      ? caller.principalId
+      : tenantId;
+
+  return {
+    tenantId,
+    userId,
+    companyId: "default",
+  };
+}
+"""
+
+    company_store_ts = """import pg from "pg";
+
+import type { CompanyProfile } from "./company-state.js";
+import type { CompanyScope } from "./tenant.js";
+
+export interface CompanyStore {
+  ensureSchema(): Promise<void>;
+  get(scope: CompanyScope): Promise<CompanyProfile | null>;
+  put(scope: CompanyScope, profile: CompanyProfile): Promise<CompanyProfile>;
+}
+
+class PostgresCompanyStore implements CompanyStore {
+  private readonly pool: pg.Pool;
+
+  constructor(connectionString: string) {
+    this.pool = new pg.Pool({ connectionString });
+  }
+
+  async ensureSchema(): Promise<void> {
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS company_profiles (
+        tenant_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        company_id TEXT NOT NULL DEFAULT 'default',
+        profile JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (tenant_id, user_id, company_id)
+      )
+    `);
+  }
+
+  async get(scope: CompanyScope): Promise<CompanyProfile | null> {
+    const result = await this.pool.query<{ profile: CompanyProfile }>(
+      `SELECT profile
+       FROM company_profiles
+       WHERE tenant_id = $1 AND user_id = $2 AND company_id = $3`,
+      [scope.tenantId, scope.userId, scope.companyId],
+    );
+    return result.rows[0]?.profile ?? null;
+  }
+
+  async put(scope: CompanyScope, profile: CompanyProfile): Promise<CompanyProfile> {
+    await this.pool.query(
+      `INSERT INTO company_profiles (tenant_id, user_id, company_id, profile, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::timestamptz)
+       ON CONFLICT (tenant_id, user_id, company_id)
+       DO UPDATE SET profile = EXCLUDED.profile, updated_at = EXCLUDED.updated_at`,
+      [
+        scope.tenantId,
+        scope.userId,
+        scope.companyId,
+        JSON.stringify(profile),
+        profile.updatedAt ?? new Date().toISOString(),
+      ],
+    );
+    return profile;
+  }
+}
+
+let store: CompanyStore | null | undefined;
+
+export function getCompanyStore(): CompanyStore | null {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    return null;
+  }
+
+  if (store === undefined) {
+    store = new PostgresCompanyStore(connectionString);
+  }
+
+  return store;
+}
+
+export async function ensureCompanyStoreReady(): Promise<void> {
+  const companyStore = getCompanyStore();
+  if (companyStore) {
+    await companyStore.ensureSchema();
+  }
+}
+"""
+
+    company_profile_service_ts = """import type { ToolContext } from "eve/tools";
+
+import { getCompanyStore } from "./company-store.js";
+import {
+  companyProfile,
+  formatProfileMarkdown,
+  type CompanyMetrics,
+  type CompanyProfile,
+} from "./company-state.js";
+import type { CompanyScope } from "./tenant.js";
+
+export function mergeCompanyProfile(
+  current: CompanyProfile,
+  patch: Partial<Omit<CompanyProfile, "metrics" | "goals">> & {
+    metrics?: Partial<CompanyMetrics>;
+    goals?: string[];
+  },
+): CompanyProfile {
   const metrics: CompanyMetrics = {
     ...current.metrics,
     ...(patch.metrics ?? {}),
@@ -1030,27 +1274,106 @@ function mergeProfile(current: CompanyProfile, patch: z.infer<typeof updateSchem
   };
 }
 
-export default defineTool({
-  description:
-    "Update the shared company profile. Partial updates merge into the existing session state and sync to /workspace/company/profile.md.",
-  inputSchema: updateSchema,
-  async execute(input, ctx) {
-    companyProfile.update((current) => mergeProfile(current, input));
-    const profile = companyProfile.get();
+export async function hydrateCompanyProfile(scope: CompanyScope): Promise<void> {
+  const store = getCompanyStore();
+  if (!store) {
+    return;
+  }
 
-    try {
-      const sandbox = await ctx.getSandbox();
-      await sandbox.writeTextFile({
-        path: "company/profile.md",
-        content: formatProfileMarkdown(profile),
-      });
-    } catch {
-      // Sandbox may be unavailable during discovery or some runtime modes.
-    }
+  const stored = await store.get(scope);
+  if (stored) {
+    companyProfile.update(() => stored);
+  }
+}
 
-    return profile;
+export async function persistCompanyProfile(
+  scope: CompanyScope,
+  profile: CompanyProfile,
+): Promise<void> {
+  const store = getCompanyStore();
+  if (!store) {
+    return;
+  }
+
+  await store.put(scope, profile);
+}
+
+export async function syncProfileToSandbox(
+  profile: CompanyProfile,
+  ctx: ToolContext,
+): Promise<void> {
+  try {
+    const sandbox = await ctx.getSandbox();
+    await sandbox.writeTextFile({
+      path: "company/profile.md",
+      content: formatProfileMarkdown(profile),
+    });
+  } catch {
+    // Sandbox may be unavailable during discovery or some runtime modes.
+  }
+}
+
+export async function persistAndSyncCompanyProfile(
+  scope: CompanyScope,
+  profile: CompanyProfile,
+  ctx: ToolContext,
+): Promise<void> {
+  await persistCompanyProfile(scope, profile);
+  await syncProfileToSandbox(profile, ctx);
+}
+"""
+
+    load_profile_hook_ts = """import { defineHook } from "eve/hooks";
+
+import { hydrateCompanyProfile } from "../lib/company-profile-service.js";
+import { ensureCompanyStoreReady } from "../lib/company-store.js";
+import { resolveCompanyScope } from "../lib/tenant.js";
+
+export default defineHook({
+  events: {
+    async "session.started"(_event, ctx) {
+      await ensureCompanyStoreReady();
+      const scope = resolveCompanyScope(ctx);
+      await hydrateCompanyProfile(scope);
+    },
   },
 });
+"""
+
+    db_migration_sql = """CREATE TABLE IF NOT EXISTS company_profiles (
+  tenant_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  company_id TEXT NOT NULL DEFAULT 'default',
+  profile JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, user_id, company_id)
+);
+"""
+
+    db_migrate_ts = """import pg from "pg";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("DATABASE_URL is required to run db:migrate");
+  process.exit(1);
+}
+
+const migrationPath = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../db/migrations/001_company_profiles.sql",
+);
+const sql = readFileSync(migrationPath, "utf8");
+
+const pool = new pg.Pool({ connectionString });
+try {
+  await pool.query(sql);
+  console.log("Applied company profile migration.");
+} finally {
+  await pool.end();
+}
 """
 
     profile_seed = """# Company Profile
@@ -1090,12 +1413,12 @@ metadata:
 
 # Shared Company Profile
 
-One canonical profile drives the whole company for the current session.
+One canonical profile drives the whole company. When `DATABASE_URL` is set, the profile persists in Postgres across sessions for the authenticated tenant/user.
 
 ## Tools (CEO only)
 
-- `get_company_profile` — read current profile
-- `update_company_profile` — merge partial updates
+- `get_company_profile` — read current profile (hydrates from Postgres when configured)
+- `update_company_profile` — merge partial updates and persist
 
 The synced markdown mirror lives at `/workspace/company/profile.md` in the sandbox.
 
@@ -1149,13 +1472,23 @@ See `references/profile-schema.md` for the full schema.
 ```
 """
 
+    hooks_dir = output_dir / "agent" / "hooks"
+    db_dir = output_dir / "db" / "migrations"
+    scripts_dir = output_dir / "scripts"
+
     for path, content, label in [
         (lib_dir / "company-state.ts", company_state_ts, "company-state.ts"),
+        (lib_dir / "tenant.ts", tenant_ts, "tenant.ts"),
+        (lib_dir / "company-store.ts", company_store_ts, "company-store.ts"),
+        (lib_dir / "company-profile-service.ts", company_profile_service_ts, "company-profile-service.ts"),
         (lib_dir / "model.ts", model_ts, "model.ts"),
         (lib_dir / "eval-model.ts", eval_model_ts, "eval-model.ts"),
+        (hooks_dir / "load-company-profile.ts", load_profile_hook_ts, "load-company-profile hook"),
         (tools_dir / "get_company_profile.ts", get_profile_ts, "get_company_profile tool"),
         (tools_dir / "update_company_profile.ts", update_profile_ts, "update_company_profile tool"),
         (sandbox_dir / "profile.md", profile_seed, "sandbox company profile seed"),
+        (db_dir / "001_company_profiles.sql", db_migration_sql, "db migration"),
+        (scripts_dir / "db-migrate.ts", db_migrate_ts, "db migrate script"),
         (
             output_dir / "agent" / "skills" / "company-profile" / "SKILL.md",
             company_profile_skill,
@@ -1190,7 +1523,7 @@ export default defineEvalConfig({
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["agent/**/*.ts", "evals/**/*.ts"]
+  "include": ["agent/**/*.ts", "evals/**/*.ts", "scripts/**/*.ts"]
 }
 """
 
@@ -1267,6 +1600,64 @@ export default defineEval({
   },
 });
 """,
+        "integration/company-setup-multi-turn.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO runs onboarding across setup, update, and read turns.",
+  tags: ["integration", "multi-turn", "company-state"],
+  async test(t) {
+    await t.send("EVE_EVAL: multi-turn company setup workflow for a new business.");
+    t.loadedSkill("workflow-company-setup", { count: 1 });
+
+    await t.send("EVE_EVAL: multi-turn persist profile for Eval Fitness Co.");
+    t.calledTool("update_company_profile", { count: 1 });
+
+    await t.send("EVE_EVAL: multi-turn verify profile still set.");
+    t.calledTool("get_company_profile", { count: 1 });
+    t.succeeded();
+  },
+});
+""",
+        "integration/profile-delegate-workflow.eval.ts": """import { defineEval } from "eve/evals";
+
+export default defineEval({
+  description: "CEO updates profile, delegates to growth, then loads launch workflow.",
+  tags: ["integration", "multi-turn", "routing"],
+  async test(t) {
+    await t.send("EVE_EVAL: multi-turn persist profile for Eval Fitness Co.");
+    t.calledTool("update_company_profile", { count: 1 });
+
+    await t.send("EVE_EVAL: multi-turn growth brief using the company profile.");
+    t.calledSubagent("growth", { count: 1 });
+
+    await t.send("EVE_EVAL: multi-turn launch workflow for our coaching program.");
+    t.loadedSkill("workflow-launch-offer", { count: 1 });
+    t.succeeded();
+  },
+});
+""",
+        "integration/profile-persists-postgres.eval.ts": """import { defineEval } from "eve/evals";
+import { includes } from "eve/evals/expect";
+
+export default defineEval({
+  description: "Company profile survives a new session when DATABASE_URL is configured.",
+  tags: ["integration", "persistence", "postgres"],
+  async test(t) {
+    if (!process.env.DATABASE_URL) {
+      t.skip("DATABASE_URL is required for postgres persistence eval");
+    }
+
+    await t.send("EVE_EVAL: multi-turn persist profile for Eval Fitness Co.");
+    t.calledTool("update_company_profile", { count: 1 });
+
+    const session = t.newSession();
+    const readTurn = await session.send("EVE_EVAL: multi-turn verify profile still set.");
+    session.succeeded();
+    const call = readTurn.requireToolCall("get_company_profile");
+    await t.require(JSON.stringify(call.output), includes("Eval Fitness Co"));
+  },
+});
+""",
     }
 
     write_text(evals_dir / "evals.config.ts", evals_config, overwrite=overwrite, dry_run=dry_run, label="evals.config.ts")
@@ -1311,6 +1702,9 @@ HORMOZI_SPECIALIST_MODEL=
 # Vercel AI Gateway — required for non-eval runs
 AI_GATEWAY_API_KEY=
 
+# Postgres — persists company profile across sessions (optional locally)
+DATABASE_URL=postgres://hormozi:hormozi@localhost:5432/hormozi
+
 # Set to 1 for deterministic eve eval fixtures (npm run eval)
 EVE_EVAL=0
 """
@@ -1334,6 +1728,20 @@ on:
 jobs:
   eval:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: hormozi
+          POSTGRES_PASSWORD: hormozi
+          POSTGRES_DB: hormozi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: hormozi-advisor
@@ -1345,9 +1753,13 @@ jobs:
           cache: npm
           cache-dependency-path: hormozi-advisor/package-lock.json
       - run: npm ci
+      - run: npm run db:migrate
+        env:
+          DATABASE_URL: postgres://hormozi:hormozi@localhost:5432/hormozi
       - run: npm run typecheck
       - run: npm run eval:strict
         env:
+          DATABASE_URL: postgres://hormozi:hormozi@localhost:5432/hormozi
           EVE_EVAL: "1"
 """
     write_text(
@@ -1520,14 +1932,17 @@ When the user is unsure where to start, suggest:
                 "eval": "EVE_EVAL=1 eve eval",
                 "eval:strict": "EVE_EVAL=1 eve eval --strict",
                 "typecheck": "tsc --noEmit",
+                "db:migrate": "node --experimental-strip-types scripts/db-migrate.ts",
             },
             "dependencies": {
                 "ai": "^7.0.38",
                 "eve": "^0.30.8",
+                "pg": "^8.16.3",
                 "zod": "^4.0.0",
             },
             "devDependencies": {
                 "@types/node": "^24.0.0",
+                "@types/pg": "^8.15.5",
                 "typescript": "^5.9.0",
             },
         },
@@ -1548,8 +1963,8 @@ Eve agent company generated from Alex Hormozi markdown playbooks and books.
 - **Workflow tool** — cross-department orchestration
 - **Schedules** — weekly operating review, monthly unit economics
 
-- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`
-- **Evals** — smoke and routing checks with `npm run eval`
+- **Shared company state** — session profile via `get_company_profile` / `update_company_profile`, persisted to Postgres when `DATABASE_URL` is set
+- **Evals** — smoke, routing, integration, and postgres persistence checks with `npm run eval`
 - **HTTP channel** — `agent/channels/eve.ts` for API clients and future UI
 - **Onboarding** — `workflow-company-setup` skill for empty profiles
 - **Chunked references** — large books split under `references/sections/`
@@ -1570,7 +1985,17 @@ Copy environment variables:
 cp .env.example .env
 ```
 
-Playbook references are symlinked to markdown files in the repository root.
+Playbook references are symlinked to markdown files under `sources/`. Metadata is indexed in `sources/collection.json`.
+
+## Postgres persistence
+
+When `DATABASE_URL` is set, company profiles persist across sessions per authenticated tenant/user:
+
+```bash
+npm run db:migrate
+```
+
+Without `DATABASE_URL`, profile state remains session-only (fine for local smoke evals).
 
 ## Run locally
 
@@ -1626,6 +2051,8 @@ def write_manifest(
             ],
             "workflow_skills": [slug for slug in COMPANY_SKILL_SLUGS if slug.startswith("workflow-")],
             "company_state_tools": ["get_company_profile", "update_company_profile"],
+            "persistence": "postgres",
+            "content_collection": "sources/collection.json",
             "evals": list(EVAL_IDS),
             "schedules": ["weekly-operating-review", "monthly-unit-economics"],
             "chunk_threshold_default": DEFAULT_CHUNK_THRESHOLD,
@@ -1762,6 +2189,7 @@ def build_agents(
         )
 
     write_manifest(output_dir, playbooks, dry_run=dry_run)
+    write_content_collection(input_dir, playbooks, dry_run=dry_run)
 
     specialist_count = sum(len(dept.playbook_slugs) for dept in DEPARTMENTS)
     print(

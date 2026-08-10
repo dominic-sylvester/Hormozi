@@ -2,11 +2,11 @@ import { defineTool } from "eve/tools";
 import { z } from "zod";
 
 import {
-  companyProfile,
-  formatProfileMarkdown,
-  type CompanyMetrics,
-  type CompanyProfile,
-} from "../lib/company-state.js";
+  mergeCompanyProfile,
+  persistAndSyncCompanyProfile,
+} from "../lib/company-profile-service.js";
+import { companyProfile } from "../lib/company-state.js";
+import { resolveCompanyScope } from "../lib/tenant.js";
 
 const metricsSchema = z
   .object({
@@ -32,39 +32,15 @@ const updateSchema = z
   })
   .strict();
 
-function mergeProfile(current: CompanyProfile, patch: z.infer<typeof updateSchema>): CompanyProfile {
-  const metrics: CompanyMetrics = {
-    ...current.metrics,
-    ...(patch.metrics ?? {}),
-  };
-
-  return {
-    ...current,
-    ...patch,
-    metrics,
-    goals: patch.goals ?? current.goals,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
 export default defineTool({
   description:
-    "Update the shared company profile. Partial updates merge into the existing session state and sync to /workspace/company/profile.md.",
+    "Update the shared company profile. Partial updates merge into session state, persist to Postgres when DATABASE_URL is set, and sync to /workspace/company/profile.md.",
   inputSchema: updateSchema,
   async execute(input, ctx) {
-    companyProfile.update((current) => mergeProfile(current, input));
+    const scope = resolveCompanyScope(ctx);
+    companyProfile.update((current) => mergeCompanyProfile(current, input));
     const profile = companyProfile.get();
-
-    try {
-      const sandbox = await ctx.getSandbox();
-      await sandbox.writeTextFile({
-        path: "company/profile.md",
-        content: formatProfileMarkdown(profile),
-      });
-    } catch {
-      // Sandbox may be unavailable during discovery or some runtime modes.
-    }
-
+    await persistAndSyncCompanyProfile(scope, profile, ctx);
     return profile;
   },
 });
